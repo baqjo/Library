@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>{{ t('add_student') if not st else t('edit') }}</h2>
+<form method="post" class="card narrow">
+  <label>{{ t('student_no') }}<input name="student_no" value="{{ st.student_no if st }}" required></label>
+  <label>{{ t('name_ar') }}<input name="name_ar" value="{{ st.name_ar if st }}" dir="rtl"></label>
+  <label>{{ t('name_en') }}<input name="name_en" value="{{ st.name_en if st }}" dir="ltr"></label>
+  <label>{{ t('email') }}<input name="email" type="email" value="{{ st.email if st }}" dir="ltr"></label>
+  <label>{{ t('section') }}<select name="section_id"><option value="">—</option>
+   {% for s in secs %}<option value="{{ s.id }}" {{ 'selected' if en and en.section_id==s.id }}>{{ s.label(lang) }}</option>{% endfor %}</select></label>
+  <div class="row"><button class="btn">{{ t('save') }}</button><a class="btn ghost" href="{{ url_for('main.students') }}">{{ t('cancel') }}</a></div>
+</form>
+{% if st %}<form method="post" action="{{ url_for('main.student_delete', sid=st.id) }}" onsubmit="return confirm('{{ t('confirm_delete') }}')"><button class="btn danger">{{ t('delete') }}</button></form>{% endif %}
+{% endblock %}

@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>{{ t('years') }}</h2>
+<form method="post" class="card row">
+  <label>{{ t('year_name') }}<input name="name" required></label>
+  <label>{{ t('start_date') }}<input type="date" name="start_date"></label>
+  <label>{{ t('end_date') }}<input type="date" name="end_date"></label>
+  <button class="btn">{{ t('add') }}</button>
+</form>
+{% for y in years %}
+<div class="card">
+  <div class="between"><h3>{{ y.name }} {% if y.is_current %}<span class="badge">{{ t('current') }}</span>{% endif %}</h3>
+  <div>
+   {% if not y.is_current %}<form method="post" action="{{ url_for('main.year_current', yid=y.id) }}" class="inline"><button class="btn sm">{{ t('set_current') }}</button></form>{% endif %}
+   <form method="post" action="{{ url_for('main.year_delete', yid=y.id) }}" class="inline" onsubmit="return confirm('{{ t('confirm_delete') }}')"><button class="btn sm danger">{{ t('delete') }}</button></form>
+  </div></div>
+  <table>
+   {% for s in y.semesters %}<tr><td>{{ s.name(lang) }}</td><td>{{ s.start_date or '' }} → {{ s.end_date or '' }}</td>
+   <td><form method="post" action="{{ url_for('main.semester_delete', sid=s.id) }}" class="inline"><button class="btn sm danger">{{ t('delete') }}</button></form></td></tr>{% endfor %}
+  </table>
+  <form method="post" action="{{ url_for('main.semester_add', yid=y.id) }}" class="row">
+    <label>{{ t('name_ar') }}<input name="name_ar" required dir="rtl"></label>
+    <label>{{ t('name_en') }}<input name="name_en" dir="ltr"></label>
+    <label>{{ t('start_date') }}<input type="date" name="start_date"></label>
+    <label>{{ t('end_date') }}<input type="date" name="end_date"></label>
+    <button class="btn sm">{{ t('semesters') }} +</button>
+  </form>
+</div>
+{% endfor %}
+{% endblock %}

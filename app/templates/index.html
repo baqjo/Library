@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>{{ t('dashboard') }}</h2>
+<div class="grid">
+  <div class="card stat"><span>{{ t('total_students') }}</span><b>{{ total }}</b></div>
+  <div class="card stat"><span>{{ t('year') }}</span><b>{{ year.name if year else '—' }}</b></div>
+</div>
+<div class="card"><h3>{{ t('class') }}</h3>
+{% if by_class %}<table>{% for n, c in by_class %}<tr><td>{{ n }}</td><td>{{ c }}</td></tr>{% endfor %}</table>{% else %}<p>{{ t('no_data') }}</p>{% endif %}
+</div>
+{% endblock %}

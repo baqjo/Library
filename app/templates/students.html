@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="between"><h2>{{ t('students') }}</h2><a class="btn" href="{{ url_for('main.student_form') }}">{{ t('add_student') }}</a></div>
+<form method="get" class="card row">
+  <label>{{ t('year') }}<select name="year_id">{% for y in years %}<option value="{{ y.id }}" {{ 'selected' if y.id==yid }}>{{ y.name }}</option>{% endfor %}</select></label>
+  <label>{{ t('stage') }}<select name="stage_id"><option value="">{{ t('all') }}</option>{% for s in stages %}<option value="{{ s.id }}" {{ 'selected' if s.id==stage_id }}>{{ s.name(lang) }}</option>{% endfor %}</select></label>
+  <label>{{ t('class') }}<select name="class_id"><option value="">{{ t('all') }}</option>{% for c in classes %}<option value="{{ c.id }}" {{ 'selected' if c.id==class_id }}>{{ c.stage.name(lang) }} / {{ c.name(lang) }}</option>{% endfor %}</select></label>
+  <label>{{ t('section') }}<select name="section_id"><option value="">{{ t('all') }}</option>{% for s in year_sections %}<option value="{{ s.id }}" {{ 'selected' if s.id==section_id }}>{{ s.label(lang) }}</option>{% endfor %}</select></label>
+  <label>{{ t('search') }}<input name="q" value="{{ q }}"></label>
+  <button class="btn">{{ t('search') }}</button>
+</form>
+<form method="post" action="{{ url_for('main.students_move') }}" id="bulk">
+<input type="hidden" name="year_id" value="{{ yid }}">
+<div class="card row bulkbar">
+  <strong>{{ t('move_selected') }}</strong>
+  <select name="target_section" required><option value="">{{ t('target_section') }}</option>{% for s in year_sections %}<option value="{{ s.id }}">{{ s.label(lang) }}</option>{% endfor %}</select>
+  <button class="btn">{{ t('move') }}</button>
+</div>
+<div class="tablewrap"><table>
+<thead><tr><th><input type="checkbox" id="all" title="{{ t('select_all') }}"></th><th>{{ t('student_no') }}</th><th>{{ t('name') }}</th><th>{{ t('stage') }} / {{ t('class') }} / {{ t('section') }}</th><th>{{ t('actions') }}</th></tr></thead>
+{% for st, en, sec in pag.items %}
+<tr><td><input type="checkbox" name="ids" value="{{ st.id }}" class="chk"></td>
+<td>{{ st.student_no }}</td><td>{{ st.name(lang) }}</td>
+<td>{% if en and en.status == 'graduated' %}{{ t('graduated') }}{% elif sec %}{{ sec.label(lang) }}{% else %}<em>{{ t('unenrolled') }}</em>{% endif %}</td>
+<td><a href="{{ url_for('main.student_form', sid=st.id) }}">{{ t('edit') }}</a></td></tr>
+{% else %}<tr><td colspan="5">{{ t('no_data') }}</td></tr>{% endfor %}
+</table></div>
+</form>
+<div class="pager">
+  {% if pag.has_prev %}<a href="{{ url_for('main.students', page=pag.prev_num, year_id=yid, stage_id=stage_id, class_id=class_id, section_id=section_id, q=q) }}">{{ t('prev') }}</a>{% endif %}
+  <span>{{ t('page') }} {{ pag.page }} / {{ pag.pages or 1 }} ({{ pag.total }})</span>
+  {% if pag.has_next %}<a href="{{ url_for('main.students', page=pag.next_num, year_id=yid, stage_id=stage_id, class_id=class_id, section_id=section_id, q=q) }}">{{ t('next') }}</a>{% endif %}
+</div>
+{% endblock %}
+{% block scripts %}<script>document.getElementById('all')?.addEventListener('change',e=>document.querySelectorAll('.chk').forEach(c=>c.checked=e.target.checked));</script>{% endblock %}

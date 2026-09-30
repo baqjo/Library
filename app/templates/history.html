@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>{{ t('history') }}</h2>
+<div class="card tablewrap"><table>
+<tr><th>{{ t('date') }}</th><th>{{ t('operation') }}</th><th></th><th>{{ t('actions') }}</th></tr>
+{% for l in logs %}<tr><td>{{ l.created_at.strftime('%Y-%m-%d %H:%M') }}</td><td>{{ l.kind }}</td><td>{{ l.summary }}</td>
+<td>{% if l.kind in ('move','promote') and not l.undone %}<form method="post" action="{{ url_for('main.undo', lid=l.id) }}" class="inline"><button class="btn sm">{{ t('undo') }}</button></form>{% elif l.undone %}<em>{{ t('undone') }}</em>{% endif %}</td></tr>
+{% else %}<tr><td colspan="4">{{ t('no_data') }}</td></tr>{% endfor %}
+</table></div>
+{% endblock %}

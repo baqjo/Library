@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block content %}
+<form method="post" class="card narrow">
+  <h2>{{ t('login') }}</h2>
+  <label>{{ t('username') }}<input name="username" required autofocus></label>
+  <label>{{ t('password') }}<input name="password" type="password" required></label>
+  <button class="btn">{{ t('login') }}</button>
+</form>
+{% endblock %}

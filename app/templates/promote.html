@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>{{ t('promote') }}</h2>
+<p>{{ t('promote_hint') }}</p>
+<form method="post" class="card row">
+  <input type="hidden" name="action" value="preview">
+  <label>{{ t('source_year') }}<select name="src_year">{% for y in years %}<option value="{{ y.id }}" {{ 'selected' if src==y.id }}>{{ y.name }}</option>{% endfor %}</select></label>
+  <label>{{ t('target_year') }}<select name="tgt_year">{% for y in years %}<option value="{{ y.id }}" {{ 'selected' if tgt==y.id }}>{{ y.name }}</option>{% endfor %}</select></label>
+  <label>{{ t('source_class') }}<select name="class_id"><option value="">{{ t('all') }}</option>{% for c in classes %}<option value="{{ c.id }}" {{ 'selected' if cid==c.id }}>{{ c.stage.name(lang) }} / {{ c.name(lang) }}</option>{% endfor %}</select></label>
+  <button class="btn">{{ t('preview') }}</button>
+</form>
+{% if plan is not none %}
+<form method="post">
+  <input type="hidden" name="action" value="apply">
+  <input type="hidden" name="src_year" value="{{ src }}"><input type="hidden" name="tgt_year" value="{{ tgt }}"><input type="hidden" name="class_id" value="{{ cid or '' }}">
+  <div class="card tablewrap"><table>
+   <tr><th><input type="checkbox" id="all" checked></th><th>{{ t('student_no') }}</th><th>{{ t('name') }}</th><th>{{ t('from') }}</th><th>{{ t('to') }}</th></tr>
+   {% for p in plan %}<tr><td><input type="checkbox" class="chk" name="ids" value="{{ p.student.id }}" checked></td>
+   <td>{{ p.student.student_no }}</td><td>{{ p.student.name(lang) }}</td>
+   <td>{{ p.src.label(lang) }}</td>
+   <td>{% if p.next_class %}{{ p.next_class.stage.name(lang) }} / {{ p.next_class.name(lang) }} / {{ p.src.name }}{% else %}{{ t('no_next') }}{% endif %}</td></tr>
+   {% else %}<tr><td colspan="5">{{ t('no_data') }}</td></tr>{% endfor %}
+  </table></div>
+  {% if plan %}<button class="btn">{{ t('apply') }}</button>{% endif %}
+</form>
+{% endif %}
+{% endblock %}
+{% block scripts %}<script>document.getElementById('all')?.addEventListener('change',e=>document.querySelectorAll('.chk').forEach(c=>c.checked=e.target.checked));</script>{% endblock %}

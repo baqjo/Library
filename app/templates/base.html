@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="{{ lang }}" dir="{{ dir }}">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#1f4e79">
+<link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
+<link rel="icon" href="{{ url_for('static', filename='icon-192.png') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+<title>{% block title %}{{ t('app_name') }}{% endblock %}</title>
+</head>
+<body>
+<header class="top">
+  <div class="brand"><strong>{{ t('app_name') }}</strong>{% if school_name %}<small>{{ school_name }}</small>{% endif %}</div>
+  <div class="tools">
+    <a href="{{ url_for('main.set_lang', code='en' if lang=='ar' else 'ar') }}">{{ t('language') }}</a>
+    {% if current_user.is_authenticated %}<a href="{{ url_for('main.logout') }}">{{ t('logout') }}</a>{% endif %}
+  </div>
+</header>
+{% if current_user.is_authenticated %}
+<nav class="nav">
+  <a href="{{ url_for('main.index') }}">{{ t('dashboard') }}</a>
+  <a href="{{ url_for('main.students') }}">{{ t('students') }}</a>
+  <a href="{{ url_for('main.import_students') }}">{{ t('import') }}</a>
+  <a href="{{ url_for('main.promote') }}">{{ t('promote') }}</a>
+  <a href="{{ url_for('main.structure') }}">{{ t('structure') }}</a>
+  <a href="{{ url_for('main.years') }}">{{ t('years') }}</a>
+  <a href="{{ url_for('main.settings') }}">{{ t('settings') }}</a>
+  <a href="{{ url_for('main.history') }}">{{ t('history') }}</a>
+</nav>
+{% endif %}
+<main>
+{% with m = get_flashed_messages(with_categories=true) %}{% for c, x in m %}<div class="flash {{ c }}">{{ x }}</div>{% endfor %}{% endwith %}
+{% block content %}{% endblock %}
+</main>
+<script>if('serviceWorker' in navigator){navigator.serviceWorker.register('/sw.js').catch(()=>{});}</script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

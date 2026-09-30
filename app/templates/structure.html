@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>{{ t('structure') }}</h2>
+<form method="post" action="{{ url_for('main.stage_add') }}" class="card row">
+  <strong>{{ t('stage') }}</strong>
+  <label>{{ t('name_ar') }}<input name="name_ar" required dir="rtl"></label>
+  <label>{{ t('name_en') }}<input name="name_en" dir="ltr"></label>
+  <label>{{ t('order') }}<input name="order" type="number" value="1" min="1"></label>
+  <button class="btn">{{ t('add') }}</button>
+</form>
+{% for st in stages %}
+<div class="card">
+  <div class="between"><h3>{{ st.name(lang) }} <small>#{{ st.order }}</small></h3>
+  <form method="post" action="{{ url_for('main.structure_delete', kind='stage', oid=st.id) }}" class="inline" onsubmit="return confirm('{{ t('confirm_delete') }}')"><button class="btn sm danger">{{ t('delete') }}</button></form></div>
+  {% for c in st.classes %}
+  <div class="sub">
+    <div class="between"><b>{{ c.name(lang) }} <small>#{{ c.order }}</small></b>
+    <form method="post" action="{{ url_for('main.structure_delete', kind='class', oid=c.id) }}" class="inline" onsubmit="return confirm('{{ t('confirm_delete') }}')"><button class="btn sm danger">{{ t('delete') }}</button></form></div>
+    <div class="chips">
+      {% for s in sections if s.class_id == c.id and year and s.year_id == year.id %}
+        <form method="post" action="{{ url_for('main.structure_delete', kind='section', oid=s.id) }}" class="inline" onsubmit="return confirm('{{ t('confirm_delete') }}')"><span class="chip">{{ s.name }} <button class="x" title="{{ t('delete') }}">×</button></span></form>
+      {% endfor %}
+    </div>
+    {% if year %}<form method="post" action="{{ url_for('main.section_add') }}" class="row">
+      <input type="hidden" name="year_id" value="{{ year.id }}"><input type="hidden" name="class_id" value="{{ c.id }}">
+      <input name="name" placeholder="{{ t('section') }} ({{ year.name }})" required>
+      <button class="btn sm">{{ t('add') }}</button></form>{% endif %}
+  </div>
+  {% endfor %}
+  <form method="post" action="{{ url_for('main.class_add') }}" class="row">
+    <input type="hidden" name="stage_id" value="{{ st.id }}">
+    <label>{{ t('class') }} — {{ t('name_ar') }}<input name="name_ar" required dir="rtl"></label>
+    <label>{{ t('name_en') }}<input name="name_en" dir="ltr"></label>
+    <label>{{ t('order') }}<input name="order" type="number" value="{{ st.classes|length + 1 }}" min="1"></label>
+    <button class="btn sm">{{ t('add') }}</button>
+  </form>
+</div>
+{% endfor %}
+{% endblock %}
