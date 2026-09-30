@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="between"><h2>{{ t('catalog') }}</h2>
+<div><a class="btn ghost" href="{{ url_for('catalog.import_catalog') }}">{{ t('import_catalog') }}</a> <a class="btn" href="{{ url_for('catalog.title_form') }}">{{ t('add_title') }}</a></div></div>
+<form method="get" class="card row">
+  <label>{{ t('search') }} (ISBN / {{ t('title') }} / {{ t('author') }} / {{ t('copy_barcode') }})<input name="q" value="{{ q }}" id="q" autofocus></label>
+  <label>{{ t('category') }}<select name="category"><option value="">{{ t('all') }}</option>{% for c in categories %}<option {{ 'selected' if c==category }}>{{ c }}</option>{% endfor %}</select></label>
+  <label>{{ t('language_f') }}<select name="language"><option value="">{{ t('all') }}</option>
+    <option value="ar" {{ 'selected' if language=='ar' }}>{{ t('lang_ar') }}</option><option value="en" {{ 'selected' if language=='en' }}>{{ t('lang_en') }}</option><option value="other" {{ 'selected' if language=='other' }}>{{ t('lang_other') }}</option></select></label>
+  <label>{{ t('location') }}<select name="location"><option value="">{{ t('all') }}</option>{% for c in locations %}<option {{ 'selected' if c==location }}>{{ c }}</option>{% endfor %}</select></label>
+  <label class="check"><input type="checkbox" name="available" value="1" {{ 'checked' if avail }}> {{ t('available_only') }}</label>
+  <button class="btn">{{ t('search') }}</button>
+</form>
+<div class="card tablewrap"><table>
+<tr><th>{{ t('title') }}</th><th>{{ t('author') }}</th><th>{{ t('isbn') }}</th><th>{{ t('availability') }}</th></tr>
+{% for x in pag.items %}{% set n, a = counts.get(x.id, (0,0)) %}
+<tr><td><a href="{{ url_for('catalog.detail', tid=x.id) }}">{{ x.title }}</a>{% if x.title_alt %}<br><small>{{ x.title_alt }}</small>{% endif %}</td>
+<td>{{ x.author }}</td><td dir="ltr">{{ x.isbn or '' }}</td><td>{{ a }} / {{ n }}</td></tr>
+{% else %}<tr><td colspan="4">{{ t('no_data') }}</td></tr>{% endfor %}
+</table></div>
+<div class="pager">
+  {% if pag.has_prev %}<a href="{{ url_for('catalog.index', page=pag.prev_num, q=q, category=category, language=language, location=location, available='1' if avail else None) }}">{{ t('prev') }}</a>{% endif %}
+  <span>{{ t('page') }} {{ pag.page }} / {{ pag.pages or 1 }} ({{ pag.total }})</span>
+  {% if pag.has_next %}<a href="{{ url_for('catalog.index', page=pag.next_num, q=q, category=category, language=language, location=location, available='1' if avail else None) }}">{{ t('next') }}</a>{% endif %}
+</div>
+{% endblock %}

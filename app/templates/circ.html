@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>{{ t('circulation') }}</h2>
+<div class="row" style="margin-block:.5rem">
+  <button class="btn" data-mode="out">{{ t('checkout') }}</button>
+  <button class="btn ghost" data-mode="in">{{ t('checkin') }}</button>
+  <button class="btn ghost" id="camBtn" hidden>{{ t('camera') }}</button>
+  <button class="btn ghost sm" id="camStop">✕</button>
+</div>
+<video id="cam" hidden playsinline muted style="width:100%;max-width:420px;border-radius:8px"></video>
+<p><small>{{ t('scan_hint') }}</small></p>
+<div id="outPane">
+  <div class="card" id="patronRow"><label>{{ t('scan_patron') }}<input id="patronScan" autocomplete="off" autofocus dir="ltr" inputmode="none"></label></div>
+  <div class="card" id="patronBox"></div>
+  <div class="card" id="copyRow" hidden><label>{{ t('scan_copy') }}<input id="copyScan" autocomplete="off" dir="ltr" inputmode="none"></label></div>
+</div>
+<div id="inPane" hidden><div class="card"><label>{{ t('scan_copy') }}<input id="inScan" autocomplete="off" dir="ltr" inputmode="none"></label></div></div>
+<div id="log"></div>
+<script>window.I18N = {{ {
+  'renew': t('renew'), 'due': t('due'), 'overdue': t('overdue'), 'open_loans': t('open_loans'),
+  'unpaid_fines': t('unpaid_fines'), 'next_patron': t('new_patron')
+}|tojson }};</script>
+<script src="{{ url_for('static', filename='circ.js') }}"></script>
+{% endblock %}

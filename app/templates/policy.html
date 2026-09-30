@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>{{ t('policy') }}</h2>
+<form method="post" class="card narrow">
+  <label>{{ t('loan_days') }}<input type="number" name="loan_days" min="1" value="{{ p.loan_days }}"></label>
+  <label>{{ t('max_loans_f') }}<input type="number" name="max_loans" min="1" value="{{ p.max_loans }}"></label>
+  <label>{{ t('max_renewals_f') }}<input type="number" name="max_renewals" min="0" value="{{ p.max_renewals }}"></label>
+  <label>{{ t('fine_per_day') }}<input type="number" step="0.01" min="0" name="fine_per_day" value="{{ p.fine_per_day }}"></label>
+  <label>{{ t('grace_days') }}<input type="number" min="0" name="grace_days" value="{{ p.grace_days }}"></label>
+  <label>{{ t('block_fines') }}<input type="number" step="0.01" min="0" name="block_fine_amount" value="{{ p.block_fine_amount }}"></label>
+  <label class="check"><input type="checkbox" name="block_if_overdue" {{ 'checked' if p.block_if_overdue }}> {{ t('block_overdue') }}</label>
+  <label class="check"><input type="checkbox" name="allow_renew_overdue" {{ 'checked' if p.allow_renew_overdue }}> {{ t('renew_overdue_f') }}</label>
+  <strong>{{ t('closed_days') }}</strong>
+  <div class="chips">{% for i in range(7) %}<label class="check"><input type="checkbox" name="closed" value="{{ i }}" {{ 'checked' if i in p.closed_set() }}> {{ t('d' ~ i) }}</label>{% endfor %}</div>
+  <button class="btn">{{ t('save') }}</button>
+</form>
+<div class="card narrow"><h3>{{ t('holidays') }}</h3>
+<table>{% for h in holidays %}<tr><td>{{ h.day }}</td><td>{{ h.note }}</td><td><form method="post" action="{{ url_for('circ.holiday_delete', hid=h.id) }}" class="inline"><button class="btn sm danger">{{ t('delete') }}</button></form></td></tr>{% endfor %}</table>
+<form method="post" action="{{ url_for('circ.holiday_add') }}" class="row"><input type="date" name="day" required><input name="note" placeholder="{{ t('note') }}"><button class="btn sm">{{ t('add') }}</button></form></div>
+{% endblock %}

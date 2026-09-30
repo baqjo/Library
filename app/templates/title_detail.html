@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="between"><h2>{{ ti.title }}</h2>
+<div><a class="btn ghost" href="{{ url_for('catalog.title_form', tid=ti.id) }}">{{ t('edit') }}</a>
+<form method="post" action="{{ url_for('catalog.title_delete', tid=ti.id) }}" class="inline" onsubmit="return confirm('{{ t('confirm_delete') }}')"><button class="btn danger">{{ t('delete') }}</button></form></div></div>
+<div class="card"><table>
+<tr><th>{{ t('isbn') }}</th><td dir="ltr">{{ ti.isbn or '—' }}</td></tr>
+{% if ti.title_alt %}<tr><th>{{ t('title_alt') }}</th><td>{{ ti.title_alt }}</td></tr>{% endif %}
+<tr><th>{{ t('author') }}</th><td>{{ ti.author or '—' }}</td></tr>
+<tr><th>{{ t('publisher') }}</th><td>{{ ti.publisher or '—' }} {{ ti.pub_year }}</td></tr>
+<tr><th>{{ t('category') }}</th><td>{{ ti.category or '—' }}</td></tr>
+<tr><th>{{ t('call_number') }}</th><td dir="ltr">{{ ti.call_number or '—' }}</td></tr>
+</table></div>
+<h3>{{ t('copies') }} ({{ ti.copies|length }})</h3>
+<div class="card tablewrap"><table>
+<tr><th>{{ t('copy_barcode') }}</th><th>{{ t('shelf') }}</th><th>{{ t('location') }}</th><th>{{ t('price') }}</th><th>{{ t('status') }}</th><th></th></tr>
+{% for c in ti.copies %}
+<tr>
+<td dir="ltr"><form id="cf{{ c.id }}" method="post" action="{{ url_for('catalog.copy_update', cid=c.id) }}"></form><b>{{ c.barcode }}</b>{% if loans.get(c.id) %}<br><small>{{ t('loaned_to') }} {{ loans[c.id].student.name(lang) }} · {{ t('due') }} {{ loans[c.id].due_date }}</small>{% endif %}</td>
+<td><input form="cf{{ c.id }}" name="shelf" value="{{ c.shelf }}" list="shelves" size="8"></td>
+<td><input form="cf{{ c.id }}" name="location" value="{{ c.location }}" list="locs" size="12"></td>
+<td><input form="cf{{ c.id }}" name="price" value="{{ c.price or '' }}" size="5" inputmode="decimal"></td>
+<td>{% if c.status == 'out' %}{{ t('out') }}<input form="cf{{ c.id }}" type="hidden" name="status" value="out">{% else %}<select form="cf{{ c.id }}" name="status">{% for s in statuses if s != 'out' %}<option value="{{ s }}" {{ 'selected' if c.status==s }}>{{ t(s) }}</option>{% endfor %}</select>{% endif %}</td>
+<td><button form="cf{{ c.id }}" class="btn sm">{{ t('save') }}</button>
+<a class="btn sm ghost" target="_blank" href="{{ url_for('barcodes.image', code=c.barcode) }}">{{ t('print_label') }}</a>
+<form method="post" action="{{ url_for('catalog.copy_delete', cid=c.id) }}" class="inline" onsubmit="return confirm('{{ t('confirm_delete') }}')"><button class="btn sm danger">{{ t('delete') }}</button></form></td></tr>
+{% else %}<tr><td colspan="6">{{ t('no_data') }}</td></tr>{% endfor %}
+</table></div>
+<datalist id="shelves">{% for v in shelves %}<option value="{{ v }}">{% endfor %}</datalist>
+<datalist id="locs">{% for v in locations %}<option value="{{ v }}">{% endfor %}</datalist>
+<form method="post" action="{{ url_for('catalog.copies_add', tid=ti.id) }}" class="card row">
+  <strong>{{ t('add_copies') }}</strong>
+  <label>{{ t('count') }}<input type="number" name="count" value="1" min="1" max="200" style="width:5rem"></label>
+  <label>{{ t('shelf') }}<input name="shelf" list="shelves"></label>
+  <label>{{ t('location') }}<input name="location" list="locs"></label>
+  <label>{{ t('price') }}<input name="price" inputmode="decimal" style="width:6rem"></label>
+  <label>{{ t('barcode_auto') }}<input name="barcode" dir="ltr" class="scan"></label>
+  <button class="btn">{{ t('add') }}</button>
+  <small>{{ t('free_codes') }}: {{ free }}</small>
+</form>
+{% endblock %}

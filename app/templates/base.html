@@ -20,11 +20,16 @@
 {% if current_user.is_authenticated %}
 <nav class="nav">
   <a href="{{ url_for('main.index') }}">{{ t('dashboard') }}</a>
+  <a href="{{ url_for('circ.desk') }}">{{ t('circulation') }}</a>
+  <a href="{{ url_for('catalog.index') }}">{{ t('catalog') }}</a>
   <a href="{{ url_for('main.students') }}">{{ t('students') }}</a>
   <a href="{{ url_for('main.import_students') }}">{{ t('import') }}</a>
   <a href="{{ url_for('main.promote') }}">{{ t('promote') }}</a>
   <a href="{{ url_for('main.structure') }}">{{ t('structure') }}</a>
   <a href="{{ url_for('main.years') }}">{{ t('years') }}</a>
+  <a href="{{ url_for('barcodes.index') }}">{{ t('barcodes') }}</a>
+  <a href="{{ url_for('circ.fines') }}">{{ t('fines') }}</a>
+  <a href="{{ url_for('circ.policy') }}">{{ t('policy') }}</a>
   <a href="{{ url_for('main.settings') }}">{{ t('settings') }}</a>
   <a href="{{ url_for('main.history') }}">{{ t('history') }}</a>
 </nav>

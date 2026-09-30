@@ -37,7 +37,11 @@ def create_app():
         )
 
     from .routes import bp
-    app.register_blueprint(bp)
+    from .catalog import bp as catalog_bp
+    from .barcodes import bp as barcodes_bp
+    from .circulation import bp as circ_bp
+    for b in (bp, catalog_bp, barcodes_bp, circ_bp):
+        app.register_blueprint(b)
 
     @app.cli.command("create-admin")
     @click.argument("username")

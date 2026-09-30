@@ -5,6 +5,14 @@ from openpyxl import load_workbook
 COLS = ["student_no", "name_ar", "name_en", "email", "stage", "class", "section"]
 
 
+def _cell(c):
+    if c is None:
+        return ""
+    if isinstance(c, float) and c.is_integer():
+        return str(int(c))
+    return str(c).strip()
+
+
 def read_rows(file_storage):
     """Return list of dicts with normalized lowercase headers from CSV or XLSX."""
     name = (file_storage.filename or "").lower()
@@ -18,7 +26,7 @@ def read_rows(file_storage):
         for r in it:
             if r is None or all(c in (None, "") for c in r):
                 continue
-            rows.append({header[i]: ("" if c is None else str(c).strip()) for i, c in enumerate(r) if i < len(header)})
+            rows.append({header[i]: _cell(c) for i, c in enumerate(r) if i < len(header)})
     else:
         text = data.decode("utf-8-sig", errors="replace")
         rdr = csv.DictReader(io.StringIO(text))

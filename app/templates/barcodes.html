@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>{{ t('barcodes') }}</h2>
+<form method="post" class="card row">
+  <label>{{ t('kind') }}<select name="kind"><option value="copy">{{ t('kind_copy') }}</option><option value="student">{{ t('kind_student') }}</option></select></label>
+  <label>{{ t('prefix') }}<input name="prefix" dir="ltr" size="6" maxlength="20"></label>
+  <label>{{ t('range_start') }}<input name="start" type="number" min="0" required style="width:8rem"></label>
+  <label>{{ t('range_end') }}<input name="end" type="number" min="0" required style="width:8rem"></label>
+  <label>{{ t('padding') }}<input name="padding" type="number" min="0" max="12" value="0" style="width:6rem"></label>
+  <label>{{ t('note') }}<input name="note"></label>
+  <button class="btn">{{ t('add') }}</button>
+</form>
+<div class="card tablewrap"><table>
+<tr><th>{{ t('kind') }}</th><th>{{ t('barcodes') }}</th><th>{{ t('used') }}</th><th>{{ t('note') }}</th><th>{{ t('actions') }}</th></tr>
+{% for r, used, total in rows %}
+<tr><td>{{ t('kind_copy') if r.kind=='copy' else t('kind_student') }}</td>
+<td dir="ltr"><b>{{ r.code(r.start) }} … {{ r.code(r.end) }}</b></td><td>{{ used }} / {{ total }}</td><td>{{ r.note }}</td>
+<td>
+ <form method="get" action="{{ url_for('barcodes.labels', rid=r.id) }}" class="inline">
+  <input name="from" type="number" placeholder="{{ r.start }}" style="width:6rem"> <input name="to" type="number" placeholder="{{ r.end }}" style="width:6rem">
+  <select name="cols">{% for n in (2,3,4,5) %}<option value="{{ n }}" {{ 'selected' if n==3 }}>{{ n }} {{ t('columns') }}</option>{% endfor %}</select>
+  <button class="btn sm">{{ t('print_labels') }}</button></form>
+ {% if r.kind == 'student' %}<form method="post" action="{{ url_for('barcodes.assign_students', rid=r.id) }}" class="inline"><button class="btn sm ghost">{{ t('assign_students') }}</button></form>{% endif %}
+ <form method="post" action="{{ url_for('barcodes.delete', rid=r.id) }}" class="inline" onsubmit="return confirm('{{ t('confirm_delete') }}')"><button class="btn sm danger">{{ t('delete') }}</button></form>
+</td></tr>
+{% else %}<tr><td colspan="5">{{ t('no_data') }}</td></tr>{% endfor %}
+</table></div>
+<p><a href="{{ url_for('barcodes.student_cards') }}">{{ t('student_cards') }}</a></p>
+{% endblock %}

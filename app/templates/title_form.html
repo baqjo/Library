@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>{{ t('edit') if ti else t('add_title') }}</h2>
+{% set x = ti %}
+<form method="post" class="card narrow">
+  <label>{{ t('isbn') }}<input name="isbn" value="{{ x.isbn if x and x.isbn }}" dir="ltr" inputmode="numeric"></label>
+  <label>{{ t('title') }}<input name="title" value="{{ x.title if x }}" required></label>
+  <label>{{ t('title_alt') }}<input name="title_alt" value="{{ x.title_alt if x }}"></label>
+  <label>{{ t('author') }}<input name="author" value="{{ x.author if x }}"></label>
+  <label>{{ t('publisher') }}<input name="publisher" value="{{ x.publisher if x }}"></label>
+  <label>{{ t('pub_year') }}<input name="pub_year" value="{{ x.pub_year if x }}" dir="ltr"></label>
+  <label>{{ t('category') }}<input name="category" value="{{ x.category if x }}" list="cats"></label>
+  <datalist id="cats">{% for c in categories %}<option value="{{ c }}">{% endfor %}</datalist>
+  <label>{{ t('language_f') }}<select name="language">
+    {% for v, k in (('ar','lang_ar'),('en','lang_en'),('other','lang_other')) %}<option value="{{ v }}" {{ 'selected' if x and x.language==v }}>{{ t(k) }}</option>{% endfor %}</select></label>
+  <label>{{ t('call_number') }}<input name="call_number" value="{{ x.call_number if x }}" dir="ltr"></label>
+  <div class="row"><button class="btn">{{ t('save') }}</button><a class="btn ghost" href="{{ url_for('catalog.index') }}">{{ t('cancel') }}</a></div>
+</form>
+{% endblock %}

@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="{{ lang }}" dir="{{ dir }}">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ t('print_labels') }} {{ title }}</title>
+<style>
+body{margin:0;font-family:Arial,sans-serif;background:#fff}
+.bar{padding:.6rem 1rem;background:#eef4fa;display:flex;gap:1rem;align-items:center;flex-wrap:wrap}
+.sheet{display:grid;grid-template-columns:repeat({{ cols }},1fr);gap:0;padding:8mm}
+.label{border:1px dashed #bbb;padding:2mm 3mm;height:30mm;display:flex;flex-direction:column;align-items:center;justify-content:center;break-inside:avoid;overflow:hidden}
+.label svg{width:100%;height:auto;max-height:20mm}
+.label .nm{font-size:9pt;font-weight:bold;text-align:center;margin-bottom:1mm;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.label .sc{font-size:7pt;color:#333;margin-bottom:1mm}
+@media print{.bar{display:none}.label{border-color:transparent}.sheet{padding:0}}
+</style></head>
+<body>
+<div class="bar"><button onclick="window.print()">{{ t('print') }}</button>
+<form method="get" style="display:flex;gap:.5rem;align-items:center">
+ {% for k, v in request.args.items() if k not in ('cols','skip','section_id') %}<input type="hidden" name="{{ k }}" value="{{ v }}">{% endfor %}
+ <label>{{ t('columns') }} <input name="cols" type="number" min="1" max="6" value="{{ cols }}" style="width:4rem"></label>
+ {% if not cards %}<label>{{ t('skip_cells') }} <input name="skip" type="number" min="0" value="{{ skip }}" style="width:4rem"></label>{% endif %}
+ {% if cards %}<label>{{ t('section') }} <select name="section_id"><option value="">{{ t('all') }}</option>{% for s in sections %}<option value="{{ s.id }}" {{ 'selected' if s.id==section_id }}>{{ s.label(lang) }}</option>{% endfor %}</select></label>{% endif %}
+ <button>{{ t('apply') }}</button></form>
+<span>{{ items|length }}</span></div>
+<div class="sheet">
+{% for _ in range(skip) %}<div class="label"></div>{% endfor %}
+{% for code, name in items %}
+<div class="label">{% if name %}<div class="nm">{{ name }}</div>{% endif %}{{ svg(code)|safe }}</div>
+{% endfor %}
+</div>
+</body></html>

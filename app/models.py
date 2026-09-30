@@ -137,3 +137,108 @@ class AuditLog(db.Model):
 
     def payload(self):
         return json.loads(self.data or "{}")
+
+
+# ================= Phase 2: catalog, barcodes, circulation =================
+class Policy(db.Model):
+    """Singleton circulation policy (kept in its own table so existing DBs upgrade cleanly)."""
+    id = db.Column(db.Integer, primary_key=True)
+    loan_days = db.Column(db.Integer, default=14)
+    max_loans = db.Column(db.Integer, default=3)
+    max_renewals = db.Column(db.Integer, default=2)
+    fine_per_day = db.Column(db.Float, default=0.0)
+    grace_days = db.Column(db.Integer, default=0)
+    closed_weekdays = db.Column(db.String(20), default="")  # "4,5" (Mon=0 .. Sun=6)
+    block_if_overdue = db.Column(db.Boolean, default=True)
+    block_fine_amount = db.Column(db.Float, default=0.0)  # 0 = disabled
+    allow_renew_overdue = db.Column(db.Boolean, default=False)
+
+    @classmethod
+    def get(cls):
+        p = cls.query.first()
+        if not p:
+            p = cls()
+            db.session.add(p)
+            db.session.commit()
+        return p
+
+    def closed_set(self):
+        return {int(x) for x in (self.closed_weekdays or "").split(",") if x.strip().isdigit()}
+
+
+class Holiday(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    day = db.Column(db.Date, unique=True, nullable=False)
+    note = db.Column(db.String(200), default="")
+
+
+class Title(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    isbn = db.Column(db.String(20), unique=True)
+    title = db.Column(db.String(300), nullable=False)
+    title_alt = db.Column(db.String(300), default="")
+    author = db.Column(db.String(200), default="")
+    publisher = db.Column(db.String(200), default="")
+    pub_year = db.Column(db.String(10), default="")
+    category = db.Column(db.String(100), default="")
+    language = db.Column(db.String(10), default="ar")
+    call_number = db.Column(db.String(60), default="")
+    copies = db.relationship("Copy", backref="title", cascade="all, delete-orphan", order_by="Copy.barcode")
+
+
+class Copy(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    title_id = db.Column(db.Integer, db.ForeignKey("title.id"), nullable=False)
+    barcode = db.Column(db.String(50), unique=True, nullable=False)
+    shelf = db.Column(db.String(60), default="")
+    location = db.Column(db.String(100), default="")
+    price = db.Column(db.Float, default=0.0)
+    status = db.Column(db.String(20), default="available")  # available|out|lost|damaged|withdrawn
+    added_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+
+class BarcodeRange(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    kind = db.Column(db.String(10), nullable=False)  # copy | student
+    prefix = db.Column(db.String(20), default="")
+    start = db.Column(db.Integer, nullable=False)
+    end = db.Column(db.Integer, nullable=False)
+    padding = db.Column(db.Integer, default=0)
+    note = db.Column(db.String(200), default="")
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def code(self, n):
+        return f"{self.prefix}{str(n).zfill(self.padding)}".upper()
+
+    def codes(self):
+        return [self.code(n) for n in range(self.start, self.end + 1)]
+
+
+class Loan(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    copy_id = db.Column(db.Integer, db.ForeignKey("copy.id"), nullable=False)
+    student_id = db.Column(db.Integer, db.ForeignKey("student.id"), nullable=False)
+    year_id = db.Column(db.Integer, db.ForeignKey("academic_year.id"))
+    semester_id = db.Column(db.Integer, db.ForeignKey("semester.id"))
+    section_id = db.Column(db.Integer, db.ForeignKey("section.id"))  # class snapshot at loan time (for statistics)
+    out_at = db.Column(db.DateTime, default=datetime.utcnow)
+    due_date = db.Column(db.Date, nullable=False)
+    returned_at = db.Column(db.DateTime)
+    renewals = db.Column(db.Integer, default=0)
+    note = db.Column(db.String(100), default="")
+    copy = db.relationship("Copy")
+    student = db.relationship("Student")
+    section = db.relationship("Section")
+
+
+class Fine(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    loan_id = db.Column(db.Integer, db.ForeignKey("loan.id"))
+    student_id = db.Column(db.Integer, db.ForeignKey("student.id"), nullable=False)
+    amount = db.Column(db.Float, nullable=False)
+    reason = db.Column(db.String(20), default="overdue")  # overdue | lost
+    status = db.Column(db.String(20), default="unpaid")  # unpaid | paid | waived
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    settled_at = db.Column(db.DateTime)
+    student = db.relationship("Student")
+    loan = db.relationship("Loan")

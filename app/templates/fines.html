@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>{{ t('fines') }}</h2>
+<div class="row">{% for s in ('unpaid','paid','waived','all') %}<a class="btn {{ '' if status==s else 'ghost' }} sm" href="{{ url_for('circ.fines', status=s) }}">{{ t(s) if s!='all' else t('all') }}</a>{% endfor %}</div>
+<div class="card tablewrap"><table>
+<tr><th>{{ t('date') }}</th><th>{{ t('students') }}</th><th>{{ t('title') }}</th><th>{{ t('reason') }}</th><th>{{ t('amount') }}</th><th>{{ t('status') }}</th><th></th></tr>
+{% for f in rows %}
+<tr><td>{{ f.created_at.strftime('%Y-%m-%d') }}</td><td>{{ f.student.name(lang) }} <small>({{ f.student.student_no }})</small></td>
+<td>{{ f.loan.copy.title.title if f.loan else '' }}</td><td>{{ t('overdue_r') if f.reason=='overdue' else t('lost_r') }}</td>
+<td>{{ '%g'|format(f.amount) }}</td><td>{{ t(f.status) }}</td>
+<td>{% if f.status=='unpaid' %}
+ <form method="post" action="{{ url_for('circ.fine_action', fid=f.id, action='paid') }}" class="inline"><button class="btn sm">{{ t('mark_paid') }}</button></form>
+ <form method="post" action="{{ url_for('circ.fine_action', fid=f.id, action='waived') }}" class="inline"><button class="btn sm ghost">{{ t('waive') }}</button></form>{% endif %}</td></tr>
+{% else %}<tr><td colspan="7">{{ t('no_data') }}</td></tr>{% endfor %}
+</table><p><strong>{{ t('total') }}: {{ '%g'|format(total) }}</strong></p></div>
+{% endblock %}

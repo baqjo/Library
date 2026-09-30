@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>{{ t('import_catalog') }}</h2>
+<form method="post" enctype="multipart/form-data" class="card narrow">
+  <p>{{ t('catalog_hint') }}</p>
+  <p><a href="{{ url_for('catalog.import_template') }}">{{ t('download_template') }}</a></p>
+  <label>{{ t('upload_file') }}<input type="file" name="file" accept=".csv,.xlsx" required></label>
+  <button class="btn">{{ t('import') }}</button>
+</form>
+{% if errs is not none %}
+<div class="grid"><div class="card stat"><span>{{ t('titles_created') }}</span><b>{{ made_titles }}</b></div>
+<div class="card stat"><span>{{ t('copies_created') }}</span><b>{{ made_copies }}</b></div>
+<div class="card stat"><span>{{ t('rows_err') }}</span><b>{{ errs|length }}</b></div></div>
+{% if errs %}<div class="card"><table><tr><th>{{ t('row') }}</th><th>{{ t('error') }}</th></tr>{% for i, e in errs %}<tr><td>{{ i }}</td><td>{{ e }}</td></tr>{% endfor %}</table></div>{% endif %}
+{% endif %}
+{% endblock %}

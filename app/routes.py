@@ -6,6 +6,7 @@ from flask_login import login_user, logout_user, login_required, current_user
 from sqlalchemy import or_
 from . import db
 from .i18n import tr
+from .util import L, msg, parse_date
 from .models import (User, School, AcademicYear, Semester, Stage, SchoolClass, Section,
                      Student, Enrollment, AuditLog)
 from .importer import read_rows, template_csv, COLS
@@ -13,23 +14,8 @@ from .importer import read_rows, template_csv, COLS
 bp = Blueprint("main", __name__)
 
 
-def L():
-    return session.get("lang", "ar")
-
-
-def msg(key, cat="ok", **kw):
-    flash(tr(key, L(), **kw), cat)
-
-
 def current_year():
     return AcademicYear.query.filter_by(is_current=True).first() or AcademicYear.query.order_by(AcademicYear.id.desc()).first()
-
-
-def parse_date(s):
-    try:
-        return date.fromisoformat(s) if s else None
-    except ValueError:
-        return None
 
 
 # ---------- auth / language ----------
