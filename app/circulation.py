@@ -27,7 +27,7 @@ def _patron_payload(s):
                   where=" · ".join(x for x in ((h.copy.shelf if h.copy else ""), (h.copy.location if h.copy else "")) if x))
              for h in holds.active_holds(s.id) if h.status == "ready"]
     return dict(id=s.id, name=s.name(L()), student_no=s.student_no, barcode=s.barcode or "", ready_holds=ready,
-                klass=en.section.label(L()) if en and en.section else "", loans=loans,
+                klass=(tr("staff", L()) if s.patron_type == "staff" else (en.section.label(L()) if en and en.section else "")), loans=loans,
                 fines=round(circ.unpaid_total(s.id), 2))
 
 

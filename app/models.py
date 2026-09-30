@@ -114,6 +114,8 @@ class Student(db.Model):
     name_en = db.Column(db.String(200), default="")
     email = db.Column(db.String(200), default="")
     barcode = db.Column(db.String(50), unique=True)  # assigned in phase 2
+    patron_type = db.Column(db.String(10), default="student")  # student | staff (teachers, employees)
+    active = db.Column(db.Boolean, default=True)  # used for staff; students are active while enrolled
     enrollments = db.relationship("Enrollment", backref="student", cascade="all, delete-orphan")
 
     def name(self, lang):
@@ -297,3 +299,11 @@ class EmailLog(db.Model):
     error = db.Column(db.String(500), default="")
     sent_at = db.Column(db.DateTime)
     student = db.relationship("Student")
+
+
+class ImportJob(db.Model):
+    """Rows of a previewed import, kept on the server so a 1,000+ row file is never round-tripped through the browser."""
+    id = db.Column(db.Integer, primary_key=True)
+    token = db.Column(db.String(64), unique=True, nullable=False)
+    payload = db.Column(db.Text, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)

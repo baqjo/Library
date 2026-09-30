@@ -2,7 +2,12 @@ import csv
 import io
 from openpyxl import load_workbook
 
-COLS = ["student_no", "name_ar", "name_en", "email", "stage", "class", "section"]
+COLS = ["student_no", "name_ar", "name_en", "email", "stage", "class", "section", "type", "barcode"]
+STAFF_WORDS = {"staff", "employee", "teacher", "موظف", "موظفة", "معلم", "معلمة", "اداري", "إداري", "إدارية"}
+
+
+def is_staff_row(row):
+    return (row.get("type", "") or "").strip().lower() in STAFF_WORDS
 
 
 def _cell(c):
@@ -39,5 +44,6 @@ def template_csv():
     out = io.StringIO()
     w = csv.writer(out)
     w.writerow(COLS)
-    w.writerow(["1001", "أحمد محمد", "Ahmed Mohammed", "ahmed@school.edu", "الابتدائية", "الصف الأول", "أ"])
+    w.writerow(["1001", "أحمد محمد", "Ahmed Mohammed", "ahmed@school.edu", "الابتدائية", "الصف الأول", "أ", "student", ""])
+    w.writerow(["T-01", "سلمى خالد", "Salma Khaled", "salma@school.edu", "", "", "", "staff", ""])
     return "\ufeff" + out.getvalue()

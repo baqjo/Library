@@ -85,7 +85,10 @@ def current_year():
 
 
 def student_is_active(student):
-    """A student may use the portal / place holds only while actively enrolled in the current year."""
+    """Students may use the portal / place holds only while actively enrolled in the current year;
+    staff patrons (teachers, employees) are active until switched off."""
+    if student.patron_type == "staff":
+        return student.active is not False
     y = current_year()
     if not y:
         return False

@@ -3,7 +3,7 @@ from datetime import date, datetime, timedelta
 from flask import (current_app, send_from_directory, Blueprint, render_template, request, redirect, url_for, session,
                    flash, Response, jsonify)
 from flask_login import login_user, logout_user, current_user
-from sqlalchemy import or_
+from sqlalchemy import or_, and_, func
 from . import db
 from .i18n import tr
 from .auth import staff, admin_only
@@ -11,7 +11,10 @@ from .util import L, msg, parse_date
 from werkzeug.security import check_password_hash, generate_password_hash
 from .models import (User, School, AcademicYear, Semester, Stage, SchoolClass, Section,
                      Student, Enrollment, AuditLog)
-from .importer import read_rows, template_csv, COLS
+from .importer import read_rows, template_csv, COLS, is_staff_row
+from .barcode import normalize_scan, is_valid
+from .models import ImportJob, Copy, Loan, Fine, Hold, StudentCredential
+import secrets
 
 bp = Blueprint("main", __name__)
 
@@ -244,6 +247,7 @@ def students():
     stage_id = request.args.get("stage_id", type=int)
     class_id = request.args.get("class_id", type=int)
     section_id = request.args.get("section_id", type=int)
+    ptype = request.args.get("ptype", "")
     q = request.args.get("q", "").strip()
     page = request.args.get("page", 1, type=int)
 
@@ -251,6 +255,10 @@ def students():
              .outerjoin(Enrollment, (Enrollment.student_id == Student.id) & (Enrollment.year_id == yid))
              .outerjoin(Section, Section.id == Enrollment.section_id)
              .outerjoin(SchoolClass, SchoolClass.id == Section.class_id))
+    if ptype == "staff":
+        query = query.filter(Student.patron_type == "staff")
+    elif ptype == "student":
+        query = query.filter(or_(Student.patron_type.is_(None), Student.patron_type != "staff"))
     if stage_id:
         query = query.filter(SchoolClass.stage_id == stage_id)
     if class_id:
@@ -259,11 +267,11 @@ def students():
         query = query.filter(Section.id == section_id)
     if q:
         like = f"%{q}%"
-        query = query.filter(or_(Student.student_no.like(like), Student.name_ar.like(like),
-                                 Student.name_en.like(like), Student.email.like(like)))
+        query = query.filter(or_(*[col.contains(q, autoescape=True) for col in
+                                   (Student.student_no, Student.name_ar, Student.name_en, Student.email)]))
     pag = query.order_by(Student.student_no).paginate(page=page, per_page=PER_PAGE, error_out=False)
     return render_template("students.html", pag=pag, years=years, yid=yid, stage_id=stage_id, class_id=class_id,
-                           section_id=section_id, q=q, stages=Stage.query.order_by(Stage.order).all(),
+                           section_id=section_id, q=q, ptype=ptype, stages=Stage.query.order_by(Stage.order).all(),
                            classes=SchoolClass.query.order_by(SchoolClass.order).all(),
                            year_sections=Section.query.filter_by(year_id=yid).all() if yid else [])
 
@@ -288,10 +296,12 @@ def student_form(sid=None):
             st.name_ar = request.form.get("name_ar", "").strip()
             st.name_en = request.form.get("name_en", "").strip()
             st.email = request.form.get("email", "").strip()
+            st.patron_type = "staff" if request.form.get("patron_type") == "staff" else "student"
+            st.active = request.form.get("active", "1") != "0"
             db.session.add(st)
             db.session.flush()
             sec = request.form.get("section_id", type=int)
-            if y and sec:
+            if y and sec and st.patron_type == "student":
                 e = Enrollment.query.filter_by(student_id=st.id, year_id=y.id).first() or Enrollment(student_id=st.id, year_id=y.id)
                 e.section_id, e.status = sec, "active"
                 db.session.add(e)
@@ -305,6 +315,11 @@ def student_form(sid=None):
 @bp.route("/students/<int:sid>/delete", methods=["POST"])
 @admin_only
 def student_delete(sid):
+    if Loan.query.filter_by(student_id=sid).first() or Fine.query.filter_by(student_id=sid).first() \
+            or Hold.query.filter_by(student_id=sid).first():
+        msg("in_use", "err")  # keep circulation history; switch a staff member off instead
+        return redirect(url_for("main.students"))
+    StudentCredential.query.filter_by(student_id=sid).delete()
     db.session.delete(db.session.get(Student, sid))
     db.session.commit()
     msg("deleted")
@@ -381,6 +396,18 @@ def import_template():
                     headers={"Content-Disposition": "attachment; filename=students_template.csv"})
 
 
+def _barcode_error(code, student_no, seen):
+    """None if `code` may be given to this patron, else a short reason."""
+    if not is_valid(code):
+        return "invalid barcode characters"
+    if code in seen:
+        return "duplicate barcode in file"
+    other = Student.query.filter(func.upper(Student.barcode) == code, Student.student_no != student_no).first()
+    if other or Copy.query.filter(func.upper(Copy.barcode) == code).first():
+        return "barcode already in use"
+    return None
+
+
 @bp.route("/import", methods=["GET", "POST"])
 @admin_only
 def import_students():
@@ -392,15 +419,20 @@ def import_students():
         return redirect(url_for("main.years"))
     auto = bool(request.form.get("auto"))
     confirm = request.form.get("confirm") == "1"
-    if confirm:
-        rows = json.loads(request.form["rows"])
+    job = None
+    if confirm:  # rows were stored on the server at preview time (a 1,200-row form field is too big for the browser round trip)
+        job = ImportJob.query.filter_by(token=request.form.get("job", "")).first()
+        if not job:
+            msg("import_expired", "err")
+            return redirect(url_for("main.import_students"))
+        rows = json.loads(job.payload)
     else:
         f = request.files.get("file")
         if not f or not f.filename:
             msg("required", "err")
             return redirect(url_for("main.import_students"))
         rows = read_rows(f)
-    ok, errs, seen = [], [], set()
+    ok, errs, seen, seen_codes = [], [], set(), set()
     for i, r in enumerate(rows, start=2):
         no = r.get("student_no", "")
         if not no:
@@ -410,6 +442,17 @@ def import_students():
             errs.append((i, "duplicate in file"))
             continue
         seen.add(no)
+        code = normalize_scan(r.get("barcode", ""))
+        if code:
+            berr = _barcode_error(code, no, seen_codes)
+            if berr:
+                errs.append((i, berr))
+                continue
+            seen_codes.add(code)
+            r["barcode"] = code
+        if is_staff_row(r):  # staff patrons need no stage / class / section
+            ok.append(r)
+            continue
         sec, err = _resolve_section(r, year, auto)
         if err:
             errs.append((i, err))
@@ -417,21 +460,33 @@ def import_students():
             ok.append(r)
     if not confirm:
         db.session.rollback()  # preview only: discard auto-created rows
-        return render_template("import_preview.html", ok=ok, errs=errs, auto=auto, rows_json=json.dumps(ok))
+        ImportJob.query.filter(ImportJob.created_at < datetime.utcnow() - timedelta(hours=2)).delete()
+        job = ImportJob(token=secrets.token_urlsafe(24), payload=json.dumps(ok))
+        db.session.add(job)
+        db.session.commit()
+        return render_template("import_preview.html", ok=ok, errs=errs, auto=auto, job=job.token)
     created = 0
     for r in ok:
-        sec, _ = _resolve_section(r, year, auto)
         st = Student.query.filter_by(student_no=r["student_no"]).first() or Student(student_no=r["student_no"])
         st.name_ar = r.get("name_ar", st.name_ar or "")
         st.name_en = r.get("name_en", st.name_en or "")
         st.email = r.get("email", st.email or "")
+        if r.get("barcode"):
+            st.barcode = r["barcode"]
+        staff_row = is_staff_row(r)
+        st.patron_type = "staff" if staff_row else "student"
+        if staff_row:
+            st.active = True
         db.session.add(st)
         db.session.flush()
-        e = Enrollment.query.filter_by(student_id=st.id, year_id=year.id).first() or Enrollment(student_id=st.id, year_id=year.id)
-        e.section_id, e.status = sec.id, "active"
-        db.session.add(e)
+        if not staff_row:
+            sec, _ = _resolve_section(r, year, auto)
+            e = Enrollment.query.filter_by(student_id=st.id, year_id=year.id).first() or Enrollment(student_id=st.id, year_id=year.id)
+            e.section_id, e.status = sec.id, "active"
+            db.session.add(e)
         created += 1
-    log("import", f"{created} students", {})
+    log("import", f"{created} patrons", {})
+    db.session.delete(job)
     db.session.commit()
     msg("imported_n", n=created)
     return redirect(url_for("main.students"))

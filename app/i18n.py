@@ -38,7 +38,7 @@ T = {
  "class": ("الصف", "Class"),
  "section": ("الشعبة", "Section"),
  "all": ("الكل", "All"),
- "student_no": ("الرقم الأكاديمي", "Student No."),
+ "student_no": ("الرقم الأكاديمي / الوظيفي", "Student / Staff No."),
  "email": ("البريد الإلكتروني", "Email"),
  "status": ("الحالة", "Status"),
  "active": ("على رأس الدراسة", "Active"),
@@ -51,7 +51,7 @@ T = {
  "moved_n": ("تم نقل {n} طالب/طالبة.", "{n} student(s) moved."),
  "nothing_selected": ("لم يتم تحديد أي طالب.", "No students selected."),
  "upload_file": ("رفع ملف (CSV / XLSX)", "Upload file (CSV / XLSX)"),
- "template_hint": ("الأعمدة المطلوبة: student_no, name_ar, name_en, email, stage, class, section", "Required columns: student_no, name_ar, name_en, email, stage, class, section"),
+ "template_hint": ("الأعمدة: student_no, name_ar, name_en, email, stage, class, section, type, barcode. النوع student للطلاب، وstaff أو موظف أو معلم للموظفين (لا يحتاجون مرحلة ولا صفاً). الباركود اختياري.", "Columns: student_no, name_ar, name_en, email, stage, class, section, type, barcode. Type is student, or staff / teacher for employees (no stage or class needed). Barcode is optional."),
  "download_template": ("تنزيل نموذج", "Download template"),
  "auto_create": ("إنشاء المراحل والصفوف والشعب غير الموجودة تلقائياً", "Auto-create missing stages, classes and sections"),
  "preview": ("معاينة", "Preview"),
@@ -358,6 +358,19 @@ T = {
  "kind_overdue": ("تأخير", "Overdue"),
  "notif_hint": ("الإشعارات: حجز جاهز للاستلام، وتذكير قبل الاستحقاق بيومين، وتنبيه أسبوعي بالمتأخرات. لا يُرسل البريد نفسه مرتين. للإرسال التلقائي شغّل الأمر flask --app wsgi send-notifications كل 15 إلى 30 دقيقة (Cron Job على Render).", "Notifications: hold ready, a reminder 2 days before the due date, and a weekly overdue notice. The same e-mail is never sent twice. For automatic sending run flask --app wsgi send-notifications every 15-30 minutes (a Render Cron Job)."),
  "no_email": ("لا يوجد إشعارات.", "No notifications."),
+ # ---- patrons: staff ----
+ "staff": ("موظف", "Staff"),
+ "staff_group": ("الموظفون", "Staff"),
+ "patron_type": ("النوع", "Type"),
+ "type_student": ("طالب", "Student"),
+ "type_staff": ("موظف / معلم", "Staff / Teacher"),
+ "staff_only": ("الموظفون فقط", "Staff only"),
+ "students_only": ("الطلاب فقط", "Students only"),
+ "active_f": ("الحالة", "Status"),
+ "inactive": ("موقوف", "Inactive"),
+ "import_expired": ("انتهت صلاحية المعاينة، يرجى رفع الملف من جديد.", "The preview expired; please upload the file again."),
+ "staff_cards": ("بطاقات الموظفين", "Staff cards"),
+ "everyone": ("الجميع (طلاب وموظفون)", "Everyone (students and staff)"),
 }
 
 def tr(key, lang, **kw):

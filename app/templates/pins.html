@@ -3,7 +3,7 @@
 <h2>{{ t('pins') }}</h2>
 <p>{{ t('pins_hint') }}</p>
 <form method="post" class="card row">
-  <label>{{ t('section') }}<select name="section_id"><option value="">{{ t('all') }}</option>{% for s in sections %}<option value="{{ s.id }}">{{ s.label(lang) }}</option>{% endfor %}</select></label>
+  <label>{{ t('section') }}<select name="section_id"><option value="">{{ t('everyone') }}</option><option value="staff">{{ t('staff_only') }}</option>{% for s in sections %}<option value="{{ s.id }}">{{ s.label(lang) }}</option>{% endfor %}</select></label>
   <label class="check"><input type="checkbox" name="regenerate" value="1"> {{ t('regenerate_existing') }}</label>
   <button class="btn">{{ t('generate') }}</button>
 </form>

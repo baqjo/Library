@@ -25,5 +25,5 @@
 </td></tr>
 {% else %}<tr><td colspan="5">{{ t('no_data') }}</td></tr>{% endfor %}
 </table></div>
-<p><a href="{{ url_for('barcodes.student_cards') }}">{{ t('student_cards') }}</a></p>
+<p><a href="{{ url_for('barcodes.student_cards') }}">{{ t('student_cards') }}</a> · <a href="{{ url_for('barcodes.student_cards', staff=1) }}">{{ t('staff_cards') }}</a></p>
 {% endblock %}

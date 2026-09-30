@@ -5,7 +5,7 @@ Flask + SQLAlchemy PWA, Arabic (RTL) / English (LTR). Modeled on Follett Destiny
 ## Phase 1
 - School settings, academic years, semesters
 - Stages → Classes → Sections (per academic year)
-- Students: manual add/edit, CSV/XLSX import with preview & validation
+- Patrons: students **and staff** (teachers/employees; no class, never promoted, shown as “Staff” in statistics). Manual add/edit, or bulk CSV/XLSX import with preview & validation, tested with 1,200 rows. Columns: `student_no,name_ar,name_en,email,stage,class,section,type,barcode` (`type` = student|staff; `barcode` optional). Import previews are stored server-side (no form-size limit); students with loans, fines or holds cannot be deleted — set them inactive instead
 - Bulk move (multi-select) and year promotion with preview
 - Operations log with undo (move / promote)
 - PWA manifest + service worker, ar/en switch

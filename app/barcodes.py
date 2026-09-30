@@ -1,6 +1,6 @@
 from datetime import datetime
 from flask import Blueprint, render_template, request, redirect, url_for, Response
-from sqlalchemy import func
+from sqlalchemy import func, or_, and_
 from . import db
 from .barcode import svg, is_valid
 from .models import BarcodeRange, Copy, Student, Section, Enrollment, School
@@ -107,9 +107,13 @@ def student_cards():
     """Printable patron labels for the students of a section (or all) in the current year."""
     y = current_year()
     sid = request.args.get("section_id", type=int)
-    q = (db.session.query(Student).join(Enrollment, Enrollment.student_id == Student.id)
-         .filter(Enrollment.year_id == (y.id if y else 0), Student.barcode.isnot(None)))
-    if sid:
+    q = (db.session.query(Student)
+         .outerjoin(Enrollment, (Enrollment.student_id == Student.id) & (Enrollment.year_id == (y.id if y else 0)))
+         .filter(Student.barcode.isnot(None),
+                 or_(Enrollment.id.isnot(None), and_(Student.patron_type == "staff", Student.active.isnot(False)))))
+    if request.args.get("staff"):
+        q = q.filter(Student.patron_type == "staff")
+    elif sid:
         q = q.filter(Enrollment.section_id == sid)
     studs = q.order_by(Student.student_no).all()
     cols = min(max(request.args.get("cols", 3, type=int), 1), 6)
@@ -127,8 +131,9 @@ def assign_students(rid):
     if r.kind != "student":
         return redirect(url_for("barcodes.index"))
     y = current_year()
-    studs = (db.session.query(Student).join(Enrollment, Enrollment.student_id == Student.id)
-             .filter(Enrollment.year_id == (y.id if y else 0), Enrollment.status == "active",
+    studs = (db.session.query(Student)
+             .outerjoin(Enrollment, (Enrollment.student_id == Student.id) & (Enrollment.year_id == (y.id if y else 0)))
+             .filter(or_(Enrollment.status == "active", and_(Student.patron_type == "staff", Student.active.isnot(False))),
                      (Student.barcode.is_(None)) | (Student.barcode == ""))
              .order_by(Student.student_no).all())
     used = used_codes()

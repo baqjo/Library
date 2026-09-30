@@ -32,8 +32,10 @@ def _in_range(dt, start, end):
     return (not start or d >= start) and (not end or d <= end)
 
 
-def _sec_label(sec, lang):
-    return sec.label(lang) if sec else ""
+def _sec_label(sec, lang, student=None):
+    if sec:
+        return sec.label(lang)
+    return tr("staff", lang) if student is not None and student.patron_type == "staff" else ""
 
 
 # ---- each table: (title_key, header_keys, rows) ----
@@ -53,7 +55,7 @@ def t_overdue(args):
     rows = []
     for l in db.session.query(Loan).filter(Loan.returned_at.is_(None), Loan.due_date < t).order_by(Loan.due_date):
         s = l.student
-        rows.append([s.student_no, s.name(lang), _sec_label(l.section, lang), l.copy.title.title, l.copy.barcode,
+        rows.append([s.student_no, s.name(lang), _sec_label(l.section, lang, l.student), l.copy.title.title, l.copy.barcode,
                      l.due_date, (t - l.due_date).days, s.email])
     return "overdue_list", ["student_no", "name", "class_col", "title", "copy_barcode", "due", "days_overdue", "email"], rows
 
@@ -65,7 +67,7 @@ def t_loans(args):
         if not _in_range(l.out_at, a, b):
             continue
         s = l.student
-        rows.append([s.student_no, s.name(lang), _sec_label(l.section, lang), l.copy.title.title, l.copy.barcode,
+        rows.append([s.student_no, s.name(lang), _sec_label(l.section, lang, l.student), l.copy.title.title, l.copy.barcode,
                      l.out_at.date(), l.due_date, l.returned_at.date() if l.returned_at else None, l.renewals])
     return "loans_list", ["student_no", "name", "class_col", "title", "copy_barcode", "out_date", "due", "returned", "renewals"], rows
 
@@ -103,9 +105,10 @@ def t_students(args):
     lang, y = L(), circ.current_year()
     en = {e.student_id: e for e in Enrollment.query.filter_by(year_id=y.id).all()} if y else {}
     rows = [[s.student_no, s.name_ar, s.name_en, s.email, s.barcode or "",
+             tr("type_staff" if s.patron_type == "staff" else "type_student", lang),
              _sec_label(en[s.id].section, lang) if s.id in en and en[s.id].section else ""]
             for s in Student.query.order_by(Student.student_no).all()]
-    return "students", ["student_no", "name_ar", "name_en", "email", "barcode", "class_col"], rows
+    return "students", ["student_no", "name_ar", "name_en", "email", "barcode", "patron_type", "class_col"], rows
 
 
 TABLES = {"stats": t_stats, "overdue": t_overdue, "loans": t_loans, "holds": t_holds, "fines": t_fines,

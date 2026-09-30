@@ -6,6 +6,8 @@
   <label>{{ t('name_ar') }}<input name="name_ar" value="{{ st.name_ar if st }}" dir="rtl"></label>
   <label>{{ t('name_en') }}<input name="name_en" value="{{ st.name_en if st }}" dir="ltr"></label>
   <label>{{ t('email') }}<input name="email" type="email" value="{{ st.email if st }}" dir="ltr"></label>
+  <label>{{ t('patron_type') }}<select name="patron_type" id="ptype"><option value="student" {{ 'selected' if not st or st.patron_type != 'staff' }}>{{ t('type_student') }}</option><option value="staff" {{ 'selected' if st and st.patron_type == 'staff' }}>{{ t('type_staff') }}</option></select></label>
+  <label>{{ t('active_f') }}<select name="active"><option value="1">{{ t('active') }}</option><option value="0" {{ 'selected' if st and st.active is sameas false }}>{{ t('inactive') }}</option></select></label>
   <label>{{ t('section') }}<select name="section_id"><option value="">—</option>
    {% for s in secs %}<option value="{{ s.id }}" {{ 'selected' if en and en.section_id==s.id }}>{{ s.label(lang) }}</option>{% endfor %}</select></label>
   <div class="row"><button class="btn">{{ t('save') }}</button><a class="btn ghost" href="{{ url_for('main.students') }}">{{ t('cancel') }}</a></div>

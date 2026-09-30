@@ -6,7 +6,7 @@ import time
 from datetime import datetime, timedelta
 from flask import (make_response, Blueprint, render_template, request, redirect, url_for, session, g, abort)
 from flask_login import logout_user
-from sqlalchemy import func
+from sqlalchemy import func, or_, and_
 from werkzeug.security import generate_password_hash, check_password_hash
 from . import db, circ, holds
 from .auth import staff, student_required
@@ -19,7 +19,8 @@ from .util import L, msg
 bp = Blueprint("portal", __name__)
 PER_PAGE = 12
 MAX_FAILS, LOCK_MINUTES = 5, 10
-DUMMY_HASH = generate_password_hash("000000")
+PIN_METHOD = "pbkdf2:sha256:30000"  # PINs are short and rate-limited by lockout; keeps bulk generation fast
+DUMMY_HASH = generate_password_hash("000000", method=PIN_METHOD)
 
 
 # ---------------------------------------------------------------- sign-in
@@ -236,7 +237,7 @@ def _new_pin():
 def _set_pin(student):
     pin = _new_pin()
     cred = StudentCredential.query.filter_by(student_id=student.id).first() or StudentCredential(student_id=student.id)
-    cred.pin_hash = generate_password_hash(pin)
+    cred.pin_hash = generate_password_hash(pin, method=PIN_METHOD)
     cred.failed_count, cred.locked_until = 0, None
     db.session.add(cred)
     return pin
@@ -263,12 +264,17 @@ def pins():
     y = circ.current_year()
     sections = Section.query.filter_by(year_id=y.id).all() if y else []
     if request.method == "POST":
-        sec = request.form.get("section_id", type=int)
+        sec = (request.form.get("section_id") or "").strip()          # "" = everyone, "staff", or a section id
         regen = bool(request.form.get("regenerate"))
-        q = (db.session.query(Student).join(Enrollment, Enrollment.student_id == Student.id)
-             .filter(Enrollment.year_id == (y.id if y else 0), Enrollment.status == "active"))
-        if sec:
-            q = q.filter(Enrollment.section_id == sec)
+        q = (db.session.query(Student)
+             .outerjoin(Enrollment, (Enrollment.student_id == Student.id) & (Enrollment.year_id == (y.id if y else 0))))
+        staff_ok = and_(Student.patron_type == "staff", Student.active.isnot(False))
+        if sec == "staff":
+            q = q.filter(staff_ok)
+        elif sec.isdigit():
+            q = q.filter(Enrollment.status == "active", Enrollment.section_id == int(sec))
+        else:
+            q = q.filter(or_(Enrollment.status == "active", staff_ok))
         rows = []
         have = {sid for (sid,) in db.session.query(StudentCredential.student_id)}
         for st in q.order_by(Student.student_no).all():

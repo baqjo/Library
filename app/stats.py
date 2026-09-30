@@ -53,7 +53,8 @@ def _facts(f, ctx):
         q = q.filter(Loan.year_id == f["year_id"])
     for l in q.all():
         facts.append(dict(kind="loan", year_id=l.year_id, semester_id=l.semester_id, section=l.section,
-                          title=l.copy.title, student_id=l.student_id, when=l.out_at.date()))
+                          title=l.copy.title, student_id=l.student_id, when=l.out_at.date(),
+                          staff=l.student.patron_type == "staff"))
     q = Hold.query
     if f["year_id"]:
         q = q.filter(Hold.year_id == f["year_id"])
@@ -62,14 +63,15 @@ def _facts(f, ctx):
         sem = circ.semester_for(when, ctx.years.get(h.year_id))
         facts.append(dict(kind="hold", year_id=h.year_id, semester_id=sem.id if sem else None,
                           section=db.session.get(Section, h.section_id) if h.section_id else None,
-                          title=h.title, student_id=h.student_id, when=when))
+                          title=h.title, student_id=h.student_id, when=when,
+                          staff=h.student.patron_type == "staff"))
     for fn in Fine.query.filter(Fine.loan_id.isnot(None)).all():
         l = fn.loan
         if f["year_id"] and l.year_id != f["year_id"]:
             continue
         facts.append(dict(kind="fine", year_id=l.year_id, semester_id=l.semester_id, section=l.section,
                           title=l.copy.title, student_id=fn.student_id, when=fn.created_at.date(),
-                          amount=fn.amount, unpaid=fn.status == "unpaid"))
+                          amount=fn.amount, unpaid=fn.status == "unpaid", staff=fn.student.patron_type == "staff"))
     return facts
 
 
@@ -104,7 +106,7 @@ def _key(dim, fact, ctx):
                 f"{y.name if y else ''} — {s.name(ctx.lang)}")
     if dim in ("stage", "class", "section"):
         if not sec:
-            return none
+            return ((8, ""), ctx.tr("staff_group")) if fact.get("staff") else none
         c, st = sec.school_class, sec.school_class.stage
         if dim == "stage":
             return ((0, st.order, st.id), st.name(ctx.lang))

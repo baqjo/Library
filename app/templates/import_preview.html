@@ -5,11 +5,11 @@
 <div class="card stat"><span>{{ t('rows_err') }}</span><b>{{ errs|length }}</b></div></div>
 {% if errs %}<div class="card"><table><tr><th>{{ t('row') }}</th><th>{{ t('error') }}</th></tr>{% for i, e in errs %}<tr><td>{{ i }}</td><td>{{ e }}</td></tr>{% endfor %}</table></div>{% endif %}
 {% if ok %}
-<div class="card tablewrap"><table><tr><th>{{ t('student_no') }}</th><th>{{ t('name_ar') }}</th><th>{{ t('name_en') }}</th><th>{{ t('stage') }}</th><th>{{ t('class') }}</th><th>{{ t('section') }}</th></tr>
-{% for r in ok[:50] %}<tr><td>{{ r.student_no }}</td><td>{{ r.name_ar }}</td><td>{{ r.name_en }}</td><td>{{ r.stage }}</td><td>{{ r.class }}</td><td>{{ r.section }}</td></tr>{% endfor %}</table></div>
+<div class="card tablewrap"><table><tr><th>{{ t('student_no') }}</th><th>{{ t('name_ar') }}</th><th>{{ t('name_en') }}</th><th>{{ t('stage') }}</th><th>{{ t('class') }}</th><th>{{ t('section') }}</th><th>{{ t('patron_type') }}</th><th>{{ t('barcode') }}</th></tr>
+{% for r in ok[:50] %}<tr><td>{{ r.student_no }}</td><td>{{ r.name_ar }}</td><td>{{ r.name_en }}</td><td>{{ r.stage }}</td><td>{{ r.class }}</td><td>{{ r.section }}</td><td>{{ r.type }}</td><td dir="ltr">{{ r.barcode }}</td></tr>{% endfor %}</table></div>
 <form method="post" enctype="multipart/form-data">
   <input type="hidden" name="confirm" value="1">
-  <input type="hidden" name="rows" value='{{ rows_json|e }}'>
+  <input type="hidden" name="job" value="{{ job }}">
   {% if auto %}<input type="hidden" name="auto" value="1">{% endif %}
   <button class="btn">{{ t('confirm_import') }}</button> <a class="btn ghost" href="{{ url_for('main.import_students') }}">{{ t('cancel') }}</a>
 </form>
