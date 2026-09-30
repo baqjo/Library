@@ -80,7 +80,17 @@ def unpaid_total(student_id):
 
 
 def current_year():
-    return AcademicYear.query.filter_by(is_current=True).first()
+    return (AcademicYear.query.filter_by(is_current=True).first()
+            or AcademicYear.query.order_by(AcademicYear.id.desc()).first())
+
+
+def student_is_active(student):
+    """A student may use the portal / place holds only while actively enrolled in the current year."""
+    y = current_year()
+    if not y:
+        return False
+    en = Enrollment.query.filter_by(student_id=student.id, year_id=y.id).first()
+    return bool(en and en.status == "active" and en.section_id)
 
 
 def semester_for(day, year):
@@ -94,8 +104,14 @@ def semester_for(day, year):
 
 # ---------- operations ----------
 def checkout(student, copy):
+    from . import holds
     policy = Policy.get()
-    if copy.status != "available":
+    claimed = None
+    if copy.status == "held":
+        claimed = holds.hold_for_copy(copy)
+        if not claimed or claimed.student_id != student.id:
+            raise CircError("copy_held", name=claimed.student.name(_lang()) if claimed else "")
+    elif copy.status != "available":
         raise CircError("copy_" + copy.status if copy.status in ("out", "lost", "damaged", "withdrawn") else "copy_unavailable")
     loans = open_loans(student.id)
     if len(loans) >= policy.max_loans:
@@ -113,8 +129,15 @@ def checkout(student, copy):
                 out_at=now_local(), due_date=compute_due(policy))
     copy.status = "out"
     db.session.add(loan)
+    holds.close_on_checkout(student.id, copy, claimed)  # fulfil this hold / drop duplicates for the same title
     db.session.commit()
+    holds.fill_holds(copy.title_id)
     return loan
+
+
+def _lang():
+    from .util import L
+    return L()
 
 
 def checkin(copy):
@@ -125,6 +148,8 @@ def checkin(copy):
         if copy.status == "lost":  # a lost copy has been found
             copy.status = "available"
             db.session.commit()
+            from . import holds
+            holds.fill_holds(copy.title_id)
             return None, None
         raise CircError("not_checked_out")
     loan.returned_at = now_local()
@@ -137,6 +162,8 @@ def checkin(copy):
     if copy.status == "out":
         copy.status = "available"
     db.session.commit()
+    from . import holds
+    holds.fill_holds(copy.title_id)  # a waiting hold may now take this copy (status becomes "held")
     return loan, fine
 
 
@@ -156,7 +183,9 @@ def renew(loan):
 
 def mark_copy(copy, status):
     """Set copy status; marking a checked-out copy lost closes the loan and bills its price."""
+    from . import holds
     fine = None
+    was_held = copy.status == "held"
     if status == "lost":
         loan = Loan.query.filter_by(copy_id=copy.id, returned_at=None).first()
         if loan:
@@ -167,6 +196,10 @@ def mark_copy(copy, status):
                 db.session.add(fine)
     elif status != "out" and copy.status == "out":
         raise CircError("copy_out")
+    if was_held:
+        holds.release_copy(copy)  # its hold returns to the queue (keeps its place)
     copy.status = status
     db.session.commit()
+    if status == "available" or was_held:
+        holds.fill_holds(copy.title_id)
     return fine

@@ -1,0 +1,14 @@
+{# expects: ti, info, hold, borrowed, queue, back #}
+{% if borrowed %}<span class="badge">{{ t('already_borrowed') }}</span>
+{% elif hold %}
+  <div class="flash ok">
+   {% if hold.status == 'ready' %}<b>{{ t('ready_for_you') }}</b><br>{{ t('pickup_until') }}: {{ hold.expires_at }}
+     {% if hold.copy %} — {{ t('shelf') }} {{ hold.copy.shelf or '—' }} · {{ hold.copy.location or '—' }}{% endif %}
+   {% else %}<b>{{ t('in_waiting', n=queue(hold)) }}</b>{% endif %}
+  </div>
+{% else %}
+  <form method="post" action="{{ url_for('portal.hold_place', tid=ti.id) }}" class="inline">
+    <input type="hidden" name="back" value="{{ back }}">
+    <button class="btn sm">{{ t('hold_btn') if info.available else t('hold_btn_queue') }}</button>
+  </form>
+{% endif %}

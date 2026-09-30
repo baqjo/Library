@@ -1,0 +1,12 @@
+<!doctype html>
+<html lang="{{ lang }}" dir="{{ dir }}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex"><title>{{ t('pins') }}</title>
+<style>body{font-family:Arial,sans-serif;margin:1rem}.bar{background:#fff4d6;padding:.7rem 1rem;margin-bottom:1rem;border-radius:6px}
+table{border-collapse:collapse;width:100%}th,td{border:1px solid #ccc;padding:.4rem .6rem;text-align:start}.pin{font:bold 1.2rem monospace;letter-spacing:.15em;direction:ltr}
+@media print{.bar button{display:none}}</style></head><body>
+<div class="bar">{{ t('pin_hint') }} <button onclick="window.print()">{{ t('print') }}</button> <a href="{{ url_for('portal.pins') }}">{{ t('back') }}</a></div>
+<p>{{ t('portal_link') }}: <b dir="ltr">{{ url_for('portal.login', _external=True) }}</b></p>
+{% if rows %}<table><tr><th>{{ t('student_no') }}</th><th>{{ t('name') }}</th><th>PIN</th></tr>
+{% for st, pin in rows %}<tr><td dir="ltr">{{ st.student_no }}</td><td>{{ st.name(lang) }}</td><td class="pin">{{ pin }}</td></tr>{% endfor %}</table>
+{% else %}<p>{{ t('no_students') }}</p>{% endif %}
+</body></html>

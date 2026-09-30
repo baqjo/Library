@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>{{ t('holds') }}</h2>
+<div class="row">{% for k, lbl in (('ready','hold_ready'),('waiting','hold_waiting'),('closed','history')) %}<a class="btn {{ '' if status==k else 'ghost' }} sm" href="{{ url_for('circ.holds_page', status=k) }}">{{ t(lbl) }}</a>{% endfor %}</div>
+<div class="card tablewrap"><table>
+<tr><th>{{ t('students') }}</th><th>{{ t('title') }}</th><th>{{ t('copy_barcode') }} / {{ t('shelf_location') }}</th><th>{{ t('status') }}</th><th>{{ t('actions') }}</th></tr>
+{% for h in rows %}
+<tr><td>{{ h.student.name(lang) }} <small dir="ltr">({{ h.student.student_no }})</small></td>
+<td>{{ h.title.title }}</td>
+<td>{% if h.copy and h.status in ('ready','fulfilled') %}<span dir="ltr"><b>{{ h.copy.barcode }}</b></span> — {{ h.copy.shelf or '—' }} · {{ h.copy.location or '—' }}{% endif %}</td>
+<td>{% if h.status=='ready' %}{{ t('hold_ready') }} — {{ t('pickup_until') }} {{ h.expires_at }}{% elif h.status=='waiting' %}{{ t('hold_waiting') }} #{{ queue(h) }}{% else %}{{ t({'fulfilled':'hold_fulfilled','expired':'hold_expired','cancelled':'hold_cancelled_s'}[h.status]) }}{% endif %}</td>
+<td>{% if h.status in ('ready','waiting') %}<form method="post" action="{{ url_for('circ.hold_cancel', hid=h.id) }}" class="inline" onsubmit="return confirm('{{ t('cancel_hold') }}?')"><button class="btn sm danger">{{ t('cancel_hold') }}</button></form>{% endif %}</td></tr>
+{% else %}<tr><td colspan="5">{{ t('no_holds') }}</td></tr>{% endfor %}
+</table></div>
+{% endblock %}

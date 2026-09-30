@@ -35,3 +35,6 @@ th{background:var(--bg)}
 .pager{display:flex;gap:1rem;justify-content:center;align-items:center;margin:1rem 0}
 .bulkbar{background:#eef4fa}
 @media(max-width:600px){main{padding:.6rem}.row>*{flex:1 1 100%}}
+.badge.off{background:#fde7e5;color:#b3261e}
+table.kv{width:auto}table.kv th{background:none;white-space:nowrap;color:#5b6773;font-weight:600;padding-inline-end:1rem;border:0}table.kv td{border:0}
+.result h3 a{color:var(--c);text-decoration:none}

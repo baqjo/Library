@@ -1,48 +1,49 @@
 import re
 from flask import Blueprint, render_template, request, redirect, url_for, Response
-from flask_login import login_required
-from sqlalchemy import or_, func
+from sqlalchemy import or_, and_, func
 from . import db
 from .models import Title, Copy, Loan
+from .auth import staff, admin_only
 from .util import L, msg
 from .i18n import tr
 from .barcode import normalize_scan, is_valid
+from .textnorm import tokens, build_search_text, clean_isbn, isbn_valid, isbn_variants
+from .models import Hold
+from . import holds
 from .barcodes import free_codes, barcode_in_use
 from .circ import mark_copy, CircError
 from .importer import read_rows
 
 bp = Blueprint("catalog", __name__, url_prefix="/catalog")
 PER_PAGE = 20
-STATUSES = ["available", "out", "lost", "damaged", "withdrawn"]
+STATUSES = ["available", "out", "held", "lost", "damaged", "withdrawn"]
+SYSTEM_STATUSES = ("out", "held")  # set by circulation / holds, never picked by hand
 
 
-# ---------- ISBN ----------
-def clean_isbn(raw):
-    return re.sub(r"[^0-9Xx]", "", raw or "").upper()
-
-
-def isbn_valid(i):
-    if len(i) == 13 and i.isdigit():
-        s = sum(int(c) * (1 if k % 2 == 0 else 3) for k, c in enumerate(i[:12]))
-        return (10 - s % 10) % 10 == int(i[12])
-    if len(i) == 10 and re.fullmatch(r"\d{9}[\dX]", i):
-        s = sum((10 - k) * (10 if c == "X" else int(c)) for k, c in enumerate(i))
-        return s % 11 == 0
-    return False
+# ---------- ISBN / search ----------
+def refresh_search(t):
+    t.search_text = build_search_text(t)
 
 
 def search_titles(q="", category="", language="", location="", only_available=False):
-    """Shared search used by staff catalog and (phase 3) student portal."""
+    """Shared by the staff catalog and the student portal.
+    Every word must appear (Arabic letter variants / diacritics / digits normalised); ISBN-10 and ISBN-13 are
+    interchangeable; a copy barcode finds its title."""
     query = Title.query
+    q = (q or "").strip()
     if q:
-        like = f"%{q}%"
-        isbn = clean_isbn(q)
-        conds = [Title.title.like(like), Title.title_alt.like(like), Title.author.like(like),
-                 Title.publisher.like(like), Title.call_number.like(like)]
-        if len(isbn) >= 4:
-            conds.append(Title.isbn.like(f"%{isbn}%"))
-        conds.append(Title.id.in_(db.session.query(Copy.title_id).filter(func.upper(Copy.barcode) == normalize_scan(q))))
-        query = query.filter(or_(*conds))
+        parts = []
+        toks = tokens(q)
+        if toks:
+            parts.append(and_(*[Title.search_text.contains(t, autoescape=True) for t in toks]))
+        variants = isbn_variants(q)
+        if variants:
+            parts.append(Title.isbn.in_(variants))
+        digits = clean_isbn(q)
+        if len(digits) >= 6 and re.fullmatch(r"[0-9Xx\- ]+", q):
+            parts.append(Title.isbn.contains(digits, autoescape=True))
+        parts.append(Title.id.in_(db.session.query(Copy.title_id).filter(func.upper(Copy.barcode) == normalize_scan(q))))
+        query = query.filter(or_(*parts))
     if category:
         query = query.filter(Title.category == category)
     if language:
@@ -69,7 +70,7 @@ def distinct_values(col):
 
 
 @bp.route("/")
-@login_required
+@staff
 def index():
     q = request.args.get("q", "").strip()
     category = request.args.get("category", "")
@@ -97,7 +98,7 @@ def _fill_title(t, f):
 
 @bp.route("/new", methods=["GET", "POST"])
 @bp.route("/<int:tid>/edit", methods=["GET", "POST"])
-@login_required
+@staff
 def title_form(tid=None):
     t = db.session.get(Title, tid) if tid else None
     if request.method == "POST":
@@ -113,6 +114,7 @@ def title_form(tid=None):
             t = t or Title()
             _fill_title(t, f)
             t.isbn = isbn or None
+            refresh_search(t)
             db.session.add(t)
             db.session.commit()
             msg("saved")
@@ -123,7 +125,7 @@ def title_form(tid=None):
 
 
 @bp.route("/<int:tid>")
-@login_required
+@staff
 def detail(tid):
     t = db.session.get(Title, tid)
     loans = {l.copy_id: l for l in Loan.query.filter(Loan.copy_id.in_([c.id for c in t.copies]), Loan.returned_at.is_(None)).all()} if t.copies else {}
@@ -133,10 +135,11 @@ def detail(tid):
 
 
 @bp.route("/<int:tid>/delete", methods=["POST"])
-@login_required
+@staff
 def title_delete(tid):
     t = db.session.get(Title, tid)
-    if Loan.query.filter(Loan.copy_id.in_([c.id for c in t.copies])).first() if t.copies else False:
+    if Hold.query.filter_by(title_id=tid).first() or (
+            Loan.query.filter(Loan.copy_id.in_([c.id for c in t.copies])).first() if t.copies else False):
         msg("in_use", "err")
         return redirect(url_for("catalog.detail", tid=tid))
     db.session.delete(t)
@@ -167,7 +170,7 @@ def add_copies(title, n, shelf, location, price, manual_code=None):
 
 
 @bp.route("/<int:tid>/copies", methods=["POST"])
-@login_required
+@staff
 def copies_add(tid):
     t = db.session.get(Title, tid)
     f = request.form
@@ -183,12 +186,13 @@ def copies_add(tid):
         msg(err, "err", need=n)
     else:
         db.session.commit()
+        holds.fill_holds(t.id)
         msg("copies_added", n=n)
     return redirect(url_for("catalog.detail", tid=tid))
 
 
 @bp.route("/copy/<int:cid>", methods=["POST"])
-@login_required
+@staff
 def copy_update(cid):
     c = db.session.get(Copy, cid)
     f = request.form
@@ -198,7 +202,7 @@ def copy_update(cid):
     except ValueError:
         pass
     new_status = f.get("status", c.status)
-    if new_status != c.status and new_status in STATUSES and new_status != "out":
+    if new_status != c.status and new_status in STATUSES and new_status not in SYSTEM_STATUSES:
         try:
             mark_copy(c, new_status)
         except CircError as e:
@@ -211,11 +215,11 @@ def copy_update(cid):
 
 
 @bp.route("/copy/<int:cid>/delete", methods=["POST"])
-@login_required
+@staff
 def copy_delete(cid):
     c = db.session.get(Copy, cid)
     tid = c.title_id
-    if Loan.query.filter_by(copy_id=cid).first():
+    if Loan.query.filter_by(copy_id=cid).first() or Hold.query.filter_by(copy_id=cid).first():
         msg("in_use", "err")
     else:
         db.session.delete(c)
@@ -230,14 +234,14 @@ COLS = ["isbn", "title", "title_alt", "author", "publisher", "year", "category",
 
 
 @bp.route("/import/template")
-@login_required
+@staff
 def import_template():
     body = "\ufeff" + ",".join(COLS) + "\n9780140449136,الأمير الصغير,The Little Prince,Saint-Exupery,Dar,2015,أدب,ar,843,2,A-3,المكتبة الرئيسية,25,\n"
     return Response(body, mimetype="text/csv", headers={"Content-Disposition": "attachment; filename=catalog_template.csv"})
 
 
 @bp.route("/import", methods=["GET", "POST"])
-@login_required
+@staff
 def import_catalog():
     if request.method == "GET":
         return render_template("catalog_import.html", errs=None)
@@ -257,6 +261,7 @@ def import_catalog():
                     raise ValueError("title required")
                 t = Title(isbn=isbn or None)
                 _fill_title(t, {**r, "pub_year": r.get("year", ""), "language": r.get("language") or "ar"})
+                refresh_search(t)
                 db.session.add(t)
                 db.session.flush()
                 made_titles += 1
@@ -271,6 +276,7 @@ def import_catalog():
                     raise ValueError(err)
                 made_copies += n
             db.session.commit()
+            holds.fill_holds(t.id)
         except Exception as e:  # noqa - report the row and continue
             db.session.rollback()
             errs.append((i, tr(str(e), L())))

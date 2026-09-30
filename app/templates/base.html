@@ -14,24 +14,35 @@
   <div class="brand"><strong>{{ t('app_name') }}</strong>{% if school_name %}<small>{{ school_name }}</small>{% endif %}</div>
   <div class="tools">
     <a href="{{ url_for('main.set_lang', code='en' if lang=='ar' else 'ar') }}">{{ t('language') }}</a>
-    {% if current_user.is_authenticated %}<a href="{{ url_for('main.logout') }}">{{ t('logout') }}</a>{% endif %}
+    {% if current_user.is_authenticated %}<a href="{{ url_for('main.logout') }}">{{ t('logout') }}</a>
+    {% elif portal_student %}<span>{{ portal_student.name(lang) }}</span><a href="{{ url_for('portal.logout') }}">{{ t('logout') }}</a>{% endif %}
   </div>
 </header>
 {% if current_user.is_authenticated %}
 <nav class="nav">
   <a href="{{ url_for('main.index') }}">{{ t('dashboard') }}</a>
   <a href="{{ url_for('circ.desk') }}">{{ t('circulation') }}</a>
+  <a href="{{ url_for('circ.holds_page') }}">{{ t('holds') }}</a>
   <a href="{{ url_for('catalog.index') }}">{{ t('catalog') }}</a>
   <a href="{{ url_for('main.students') }}">{{ t('students') }}</a>
+  <a href="{{ url_for('portal.pins') }}">{{ t('pins') }}</a>
+  <a href="{{ url_for('barcodes.index') }}">{{ t('barcodes') }}</a>
+  <a href="{{ url_for('circ.fines') }}">{{ t('fines') }}</a>
+  {% if is_admin %}
   <a href="{{ url_for('main.import_students') }}">{{ t('import') }}</a>
   <a href="{{ url_for('main.promote') }}">{{ t('promote') }}</a>
   <a href="{{ url_for('main.structure') }}">{{ t('structure') }}</a>
   <a href="{{ url_for('main.years') }}">{{ t('years') }}</a>
-  <a href="{{ url_for('barcodes.index') }}">{{ t('barcodes') }}</a>
-  <a href="{{ url_for('circ.fines') }}">{{ t('fines') }}</a>
   <a href="{{ url_for('circ.policy') }}">{{ t('policy') }}</a>
+  <a href="{{ url_for('main.users') }}">{{ t('users') }}</a>
   <a href="{{ url_for('main.settings') }}">{{ t('settings') }}</a>
   <a href="{{ url_for('main.history') }}">{{ t('history') }}</a>
+  {% endif %}
+</nav>
+{% elif portal_student %}
+<nav class="nav">
+  <a href="{{ url_for('portal.search') }}">{{ t('portal_home') }}</a>
+  <a href="{{ url_for('portal.account') }}">{{ t('my_account') }}</a>
 </nav>
 {% endif %}
 <main>

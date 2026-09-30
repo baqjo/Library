@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block content %}
+<p><a href="javascript:history.back()">← {{ t('back') }}</a></p>
+<h2>{{ ti.title }}</h2>
+<div class="card"><table class="kv">
+ <tr><th>{{ t('isbn') }}</th><td dir="ltr"><b>{{ ti.isbn or '—' }}</b></td></tr>
+ {% if ti.title_alt %}<tr><th>{{ t('title_alt') }}</th><td>{{ ti.title_alt }}</td></tr>{% endif %}
+ <tr><th>{{ t('author') }}</th><td>{{ ti.author or '—' }}</td></tr>
+ <tr><th>{{ t('publisher') }}</th><td>{{ ti.publisher or '—' }} {{ ti.pub_year }}</td></tr>
+ <tr><th>{{ t('category') }}</th><td>{{ ti.category or '—' }}</td></tr>
+ <tr><th>{{ t('call_number') }}</th><td dir="ltr">{{ ti.call_number or '—' }}</td></tr>
+ <tr><th>{{ t('availability') }}</th><td>{{ t('copies_avail', a=info.available, n=info.total) if info.total else t('no_copies') }}{% if not info.available and info.back %} — {{ t('expected_back') }}: {{ info.back }}{% endif %}</td></tr>
+</table>
+{% with info=info, hold=hold, borrowed=borrowed, back=request.path %}{% include '_hold_box.html' %}{% endwith %}</div>
+<h3>{{ t('copies') }}</h3>
+<div class="card tablewrap"><table>
+<tr><th>{{ t('copy_barcode') }}</th><th>{{ t('shelf') }}</th><th>{{ t('location') }}</th><th>{{ t('status') }}</th></tr>
+{% for c in copies %}<tr><td dir="ltr">{{ c.barcode }}</td><td dir="ltr">{{ c.shelf or '—' }}</td><td>{{ c.location or '—' }}</td>
+<td>{{ t('available') if c.status=='available' else (t('held') if c.status=='held' else (t('out') if c.status=='out' else t(c.status))) }}</td></tr>
+{% else %}<tr><td colspan="4">{{ t('no_data') }}</td></tr>{% endfor %}
+</table></div>
+{% endblock %}

@@ -9,7 +9,9 @@ class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(80), unique=True, nullable=False)
     password_hash = db.Column(db.String(255), nullable=False)
-    role = db.Column(db.String(20), default="admin")  # admin | librarian | student
+    role = db.Column(db.String(20), default="admin")  # admin | librarian (students never get a User row)
+    failed_count = db.Column(db.Integer, default=0)
+    locked_until = db.Column(db.DateTime)
 
     def set_password(self, pw):
         self.password_hash = generate_password_hash(pw)
@@ -22,6 +24,7 @@ class School(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name_ar = db.Column(db.String(200), default="")
     name_en = db.Column(db.String(200), default="")
+    pin_login_enabled = db.Column(db.Boolean, default=True)
 
     @classmethod
     def get(cls):
@@ -152,6 +155,8 @@ class Policy(db.Model):
     block_if_overdue = db.Column(db.Boolean, default=True)
     block_fine_amount = db.Column(db.Float, default=0.0)  # 0 = disabled
     allow_renew_overdue = db.Column(db.Boolean, default=False)
+    hold_pickup_days = db.Column(db.Integer, default=3)  # how long a reserved copy waits for pickup
+    max_holds = db.Column(db.Integer, default=3)         # active holds (waiting + ready) per student
 
     @classmethod
     def get(cls):
@@ -183,6 +188,7 @@ class Title(db.Model):
     category = db.Column(db.String(100), default="")
     language = db.Column(db.String(10), default="ar")
     call_number = db.Column(db.String(60), default="")
+    search_text = db.Column(db.Text, default="")  # normalized text used by the enhanced search
     copies = db.relationship("Copy", backref="title", cascade="all, delete-orphan", order_by="Copy.barcode")
 
 
@@ -242,3 +248,34 @@ class Fine(db.Model):
     settled_at = db.Column(db.DateTime)
     student = db.relationship("Student")
     loan = db.relationship("Loan")
+
+
+# ================= Phase 3: student portal & holds =================
+class StudentCredential(db.Model):
+    """PIN login for the student portal. Only a hash of the PIN is stored; staff see the PIN once, when generated."""
+    id = db.Column(db.Integer, primary_key=True)
+    student_id = db.Column(db.Integer, db.ForeignKey("student.id"), unique=True, nullable=False)
+    pin_hash = db.Column(db.String(255), nullable=False)
+    failed_count = db.Column(db.Integer, default=0)
+    locked_until = db.Column(db.DateTime)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    last_login = db.Column(db.DateTime)
+    student = db.relationship("Student")
+
+
+class Hold(db.Model):
+    """Reservation of a title by a student: waiting -> ready (a copy is set aside) -> fulfilled | expired | cancelled."""
+    id = db.Column(db.Integer, primary_key=True)
+    title_id = db.Column(db.Integer, db.ForeignKey("title.id"), nullable=False)
+    student_id = db.Column(db.Integer, db.ForeignKey("student.id"), nullable=False)
+    status = db.Column(db.String(20), default="waiting")
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    ready_at = db.Column(db.DateTime)
+    expires_at = db.Column(db.Date)
+    copy_id = db.Column(db.Integer, db.ForeignKey("copy.id"))
+    closed_at = db.Column(db.DateTime)
+    year_id = db.Column(db.Integer, db.ForeignKey("academic_year.id"))
+    section_id = db.Column(db.Integer, db.ForeignKey("section.id"))  # class snapshot for statistics
+    title = db.relationship("Title")
+    student = db.relationship("Student")
+    copy = db.relationship("Copy")

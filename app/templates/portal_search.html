@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>{{ t('portal_home') }}</h2>
+<form method="get" class="card row">
+  <label style="flex:1 1 20rem">{{ t('search_placeholder') }}<input name="q" value="{{ q }}" autofocus autocomplete="off" enterkeyhint="search"></label>
+  <label>{{ t('category') }}<select name="category"><option value="">{{ t('all') }}</option>{% for c in categories %}<option {{ 'selected' if c==category }}>{{ c }}</option>{% endfor %}</select></label>
+  <label>{{ t('language_f') }}<select name="language"><option value="">{{ t('all') }}</option>
+    <option value="ar" {{ 'selected' if language=='ar' }}>{{ t('lang_ar') }}</option><option value="en" {{ 'selected' if language=='en' }}>{{ t('lang_en') }}</option><option value="other" {{ 'selected' if language=='other' }}>{{ t('lang_other') }}</option></select></label>
+  <label>{{ t('location') }}<select name="location"><option value="">{{ t('all') }}</option>{% for c in locations %}<option {{ 'selected' if c==location }}>{{ c }}</option>{% endfor %}</select></label>
+  <label class="check"><input type="checkbox" name="available" value="1" {{ 'checked' if avail }}> {{ t('available_only') }}</label>
+  <button class="btn">{{ t('search') }}</button>
+</form>
+{% if not searched %}<p><small>{{ t('search_tip') }}</small></p>{% endif %}
+<p><small>{{ t('found_n', n=pag.total) }}</small></p>
+{% for x in pag.items %}{% set d = info[x.id] %}
+<div class="card result">
+  <div class="between"><h3 style="margin:0"><a href="{{ url_for('portal.title', tid=x.id) }}">{{ x.title }}</a></h3>
+   <span class="badge {{ '' if d.available else 'off' }}">{{ t('copies_avail', a=d.available, n=d.total) if d.total else t('no_copies') }}</span></div>
+  <p style="margin:.3rem 0">{{ x.author }}{% if x.publisher %} — {{ x.publisher }} {{ x.pub_year }}{% endif %}</p>
+  <table class="kv">
+    <tr><th>{{ t('isbn') }}</th><td dir="ltr"><b>{{ x.isbn or '—' }}</b></td></tr>
+    {% if x.call_number %}<tr><th>{{ t('call_number') }}</th><td dir="ltr">{{ x.call_number }}</td></tr>{% endif %}
+    <tr><th>{{ t('where_to_find') }}</th><td>
+      {% if d.where %}{% for (shelf, loc), n in d.where.items() %}<div>{{ t('shelf') }} <b dir="ltr">{{ shelf or '—' }}</b> · {{ t('location') }}: <b>{{ loc or '—' }}</b>{% if n > 1 %} ({{ n }} {{ t('copies_word') }}){% endif %}</div>{% endfor %}
+      {% else %}{{ t('not_available_now') }}{% if d.back %} — {{ t('expected_back') }}: {{ d.back }}{% endif %}{% endif %}</td></tr>
+  </table>
+  {% with ti=x, info=d, hold=my_holds.get(x.id), borrowed=(x.id in borrowed), back=request.full_path %}{% include '_hold_box.html' %}{% endwith %}
+</div>
+{% endfor %}
+<div class="pager">
+  {% if pag.has_prev %}<a href="{{ url_for('portal.search', page=pag.prev_num, q=q, category=category, language=language, location=location, available='1' if avail else None) }}">{{ t('prev') }}</a>{% endif %}
+  <span>{{ t('page') }} {{ pag.page }} / {{ pag.pages or 1 }}</span>
+  {% if pag.has_next %}<a href="{{ url_for('portal.search', page=pag.next_num, q=q, category=category, language=language, location=location, available='1' if avail else None) }}">{{ t('next') }}</a>{% endif %}
+</div>
+{% endblock %}

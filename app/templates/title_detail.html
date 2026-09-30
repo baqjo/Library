@@ -20,7 +20,7 @@
 <td><input form="cf{{ c.id }}" name="shelf" value="{{ c.shelf }}" list="shelves" size="8"></td>
 <td><input form="cf{{ c.id }}" name="location" value="{{ c.location }}" list="locs" size="12"></td>
 <td><input form="cf{{ c.id }}" name="price" value="{{ c.price or '' }}" size="5" inputmode="decimal"></td>
-<td>{% if c.status == 'out' %}{{ t('out') }}<input form="cf{{ c.id }}" type="hidden" name="status" value="out">{% else %}<select form="cf{{ c.id }}" name="status">{% for s in statuses if s != 'out' %}<option value="{{ s }}" {{ 'selected' if c.status==s }}>{{ t(s) }}</option>{% endfor %}</select>{% endif %}</td>
+<td>{% if c.status in ('out','held') %}{{ t(c.status) }}<input form="cf{{ c.id }}" type="hidden" name="status" value="{{ c.status }}">{% else %}<select form="cf{{ c.id }}" name="status">{% for s in statuses if s not in ('out','held') %}<option value="{{ s }}" {{ 'selected' if c.status==s }}>{{ t(s) }}</option>{% endfor %}</select>{% endif %}</td>
 <td><button form="cf{{ c.id }}" class="btn sm">{{ t('save') }}</button>
 <a class="btn sm ghost" target="_blank" href="{{ url_for('barcodes.image', code=c.barcode) }}">{{ t('print_label') }}</a>
 <form method="post" action="{{ url_for('catalog.copy_delete', cid=c.id) }}" class="inline" onsubmit="return confirm('{{ t('confirm_delete') }}')"><button class="btn sm danger">{{ t('delete') }}</button></form></td></tr>

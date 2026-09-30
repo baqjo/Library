@@ -36,6 +36,7 @@
     const nb = el('button', I.next_patron, 'btn ghost sm'); nb.onclick = () => { patron = null; renderPatron(); };
     head.append(h, nb); box.append(head);
     if (patron.fines > 0) box.append(el('div', I.unpaid_fines + ': ' + patron.fines, 'flash err'));
+    (patron.ready_holds || []).forEach((h) => box.append(el('div', I.ready_holds + ': ' + h.title + (h.where ? ' — ' + h.where : '') + (h.barcode ? ' [' + h.barcode + ']' : ''), 'flash ok')));
     box.append(el('strong', I.open_loans + ' (' + patron.loans.length + ')'));
     const wrap = el('div', null, 'tablewrap'), tb = el('table');
     patron.loans.forEach((l) => {

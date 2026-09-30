@@ -4,6 +4,8 @@
 <form method="post" class="card narrow">
   <label>{{ t('school_name_ar') }}<input name="name_ar" value="{{ s.name_ar }}" dir="rtl"></label>
   <label>{{ t('school_name_en') }}<input name="name_en" value="{{ s.name_en }}" dir="ltr"></label>
+  <label class="check"><input type="checkbox" name="pin_login_enabled" {{ 'checked' if s.pin_login_enabled }}> {{ t('pin_enabled') }}</label>
+  <p><small>{{ t('ms_on') if ms_on else t('ms_off') }}</small></p>
   <button class="btn">{{ t('save') }}</button>
 </form>
 {% endblock %}

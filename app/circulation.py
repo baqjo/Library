@@ -1,11 +1,11 @@
 from datetime import datetime
 from flask import Blueprint, render_template, request, redirect, url_for, jsonify
-from flask_login import login_required
 from . import db
 from .i18n import tr
-from .models import Policy, Holiday, Loan, Fine, Student, Copy, Title, Enrollment
+from .models import Policy, Holiday, Loan, Fine, Student, Copy, Title, Enrollment, Hold
+from .auth import staff, admin_only
 from .util import L, msg, parse_date
-from . import circ
+from . import circ, holds
 from .circ import CircError
 
 bp = Blueprint("circ", __name__)
@@ -23,19 +23,22 @@ def _patron_payload(s):
     for l in circ.open_loans(s.id):
         loans.append(dict(id=l.id, title=l.copy.title.title, barcode=l.copy.barcode, due=l.due_date.isoformat(),
                           overdue=l.due_date < t, renewals=l.renewals))
-    return dict(id=s.id, name=s.name(L()), student_no=s.student_no, barcode=s.barcode or "",
+    ready = [dict(title=h.title.title, barcode=h.copy.barcode if h.copy else "",
+                  where=" · ".join(x for x in ((h.copy.shelf if h.copy else ""), (h.copy.location if h.copy else "")) if x))
+             for h in holds.active_holds(s.id) if h.status == "ready"]
+    return dict(id=s.id, name=s.name(L()), student_no=s.student_no, barcode=s.barcode or "", ready_holds=ready,
                 klass=en.section.label(L()) if en and en.section else "", loans=loans,
                 fines=round(circ.unpaid_total(s.id), 2))
 
 
 @bp.route("/circulation")
-@login_required
+@staff
 def desk():
     return render_template("circ.html", policy=Policy.get())
 
 
 @bp.route("/api/circ/patron", methods=["POST"])
-@login_required
+@staff
 def api_patron():
     s = circ.find_student(request.json.get("code", ""))
     if not s:
@@ -44,7 +47,7 @@ def api_patron():
 
 
 @bp.route("/api/circ/checkout", methods=["POST"])
-@login_required
+@staff
 def api_checkout():
     d = request.json
     s = db.session.get(Student, d.get("patron_id"))
@@ -62,7 +65,7 @@ def api_checkout():
 
 
 @bp.route("/api/circ/checkin", methods=["POST"])
-@login_required
+@staff
 def api_checkin():
     c = circ.find_copy(request.json.get("code", ""))
     if not c:
@@ -76,11 +79,14 @@ def api_checkin():
         m += " — " + loan.student.name(L())
     if fine:
         m += " — " + tr("fine_assessed", L(), amount=f"{fine.amount:g}")
-    return jsonify(ok=True, message=m, fine=bool(fine))
+    h = holds.hold_for_copy(c) if c.status == "held" else None
+    if h:
+        m += " — " + tr("set_aside", L(), name=h.student.name(L()))
+    return jsonify(ok=True, message=m, fine=bool(fine), hold=bool(h))
 
 
 @bp.route("/api/circ/renew", methods=["POST"])
-@login_required
+@staff
 def api_renew():
     loan = db.session.get(Loan, request.json.get("loan_id"))
     if not loan:
@@ -93,9 +99,34 @@ def api_renew():
                    patron=_patron_payload(loan.student))
 
 
+# ---------- holds (staff view) ----------
+@bp.route("/holds")
+@staff
+def holds_page():
+    status = request.args.get("status", "ready")
+    q = Hold.query
+    if status == "closed":
+        q = q.filter(Hold.status.notin_(holds.ACTIVE))
+    else:
+        q = q.filter_by(status=status if status in holds.ACTIVE else "ready")
+    rows = q.order_by(Hold.id.desc() if status == "closed" else Hold.id).limit(300).all()
+    return render_template("holds.html", rows=rows, status=status, queue=holds.queue_position)
+
+
+@bp.route("/holds/<int:hid>/cancel", methods=["POST"])
+@staff
+def hold_cancel(hid):
+    try:
+        holds.cancel_hold(db.session.get(Hold, hid))
+        msg("hold_cancelled")
+    except CircError as e:
+        msg(e.code, "err")
+    return redirect(request.referrer or url_for("circ.holds_page"))
+
+
 # ---------- fines ----------
 @bp.route("/fines")
-@login_required
+@staff
 def fines():
     status = request.args.get("status", "unpaid")
     q = Fine.query
@@ -107,7 +138,7 @@ def fines():
 
 
 @bp.route("/fines/<int:fid>/<action>", methods=["POST"])
-@login_required
+@staff
 def fine_action(fid, action):
     f = db.session.get(Fine, fid)
     if action in ("paid", "waived") and f.status == "unpaid":
@@ -119,7 +150,7 @@ def fine_action(fid, action):
 
 # ---------- policy & holidays ----------
 @bp.route("/policy", methods=["GET", "POST"])
-@login_required
+@admin_only
 def policy():
     p = Policy.get()
     if request.method == "POST":
@@ -135,6 +166,8 @@ def policy():
         p.grace_days = num("grace_days", int)
         p.fine_per_day = num("fine_per_day", float)
         p.block_fine_amount = num("block_fine_amount", float)
+        p.hold_pickup_days = num("hold_pickup_days", int, 1)
+        p.max_holds = num("max_holds", int, 1)
         p.block_if_overdue = bool(f.get("block_if_overdue"))
         p.allow_renew_overdue = bool(f.get("allow_renew_overdue"))
         days = sorted({int(x) for x in f.getlist("closed") if x.isdigit() and 0 <= int(x) <= 6})
@@ -146,7 +179,7 @@ def policy():
 
 
 @bp.route("/policy/holiday", methods=["POST"])
-@login_required
+@admin_only
 def holiday_add():
     d = parse_date(request.form.get("day"))
     if not d:
@@ -161,7 +194,7 @@ def holiday_add():
 
 
 @bp.route("/policy/holiday/<int:hid>/delete", methods=["POST"])
-@login_required
+@admin_only
 def holiday_delete(hid):
     db.session.delete(db.session.get(Holiday, hid))
     db.session.commit()

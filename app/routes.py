@@ -1,12 +1,14 @@
 import json
-from datetime import date
+from datetime import date, datetime, timedelta
 from flask import (current_app, send_from_directory, Blueprint, render_template, request, redirect, url_for, session,
                    flash, Response, jsonify)
-from flask_login import login_user, logout_user, login_required, current_user
+from flask_login import login_user, logout_user, current_user
 from sqlalchemy import or_
 from . import db
 from .i18n import tr
+from .auth import staff, admin_only
 from .util import L, msg, parse_date
+from werkzeug.security import check_password_hash, generate_password_hash
 from .models import (User, School, AcademicYear, Semester, Stage, SchoolClass, Section,
                      Student, Enrollment, AuditLog)
 from .importer import read_rows, template_csv, COLS
@@ -25,13 +27,31 @@ def set_lang(code):
     return redirect(request.referrer or url_for("main.index"))
 
 
+DUMMY_HASH = generate_password_hash("not-a-real-password")
+MAX_FAILS, LOCK_MINUTES = 5, 10
+
+
 @bp.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
         u = User.query.filter_by(username=request.form.get("username", "").strip()).first()
-        if u and u.check_password(request.form.get("password", "")):
+        pw = request.form.get("password", "")
+        now = datetime.utcnow()
+        locked = bool(u and u.locked_until and u.locked_until > now)
+        if u and not locked and u.check_password(pw):
+            u.failed_count, u.locked_until = 0, None
+            db.session.commit()
+            for k in ("student_id", "student_ts"):
+                session.pop(k, None)
             login_user(u)
             return redirect(url_for("main.index"))
+        if not u:
+            check_password_hash(DUMMY_HASH, pw)  # keep timing similar for unknown users
+        elif not locked:
+            u.failed_count = (u.failed_count or 0) + 1
+            if u.failed_count >= MAX_FAILS:
+                u.failed_count, u.locked_until = 0, now + timedelta(minutes=LOCK_MINUTES)
+            db.session.commit()
         msg("bad_login", "err")
     return render_template("login.html")
 
@@ -43,7 +63,7 @@ def logout():
 
 
 @bp.route("/")
-@login_required
+@staff
 def index():
     y = current_year()
     total = Student.query.count()
@@ -60,21 +80,23 @@ def index():
 
 # ---------- school settings ----------
 @bp.route("/settings", methods=["GET", "POST"])
-@login_required
+@admin_only
 def settings():
     s = School.get()
     if request.method == "POST":
         s.name_ar = request.form.get("name_ar", "").strip()
         s.name_en = request.form.get("name_en", "").strip()
+        s.pin_login_enabled = bool(request.form.get("pin_login_enabled"))
         db.session.commit()
         msg("saved")
         return redirect(url_for("main.settings"))
-    return render_template("settings.html", s=s)
+    from .portal import ms_configured
+    return render_template("settings.html", s=s, ms_on=ms_configured())
 
 
 # ---------- years & semesters ----------
 @bp.route("/years", methods=["GET", "POST"])
-@login_required
+@admin_only
 def years():
     if request.method == "POST":
         name = request.form.get("name", "").strip()
@@ -94,7 +116,7 @@ def years():
 
 
 @bp.route("/years/<int:yid>/current", methods=["POST"])
-@login_required
+@admin_only
 def year_current(yid):
     AcademicYear.query.update({AcademicYear.is_current: False})
     db.session.get(AcademicYear, yid).is_current = True
@@ -104,7 +126,7 @@ def year_current(yid):
 
 
 @bp.route("/years/<int:yid>/delete", methods=["POST"])
-@login_required
+@admin_only
 def year_delete(yid):
     y = db.session.get(AcademicYear, yid)
     if Enrollment.query.filter_by(year_id=yid).first() or Section.query.filter_by(year_id=yid).first():
@@ -117,7 +139,7 @@ def year_delete(yid):
 
 
 @bp.route("/years/<int:yid>/semesters", methods=["POST"])
-@login_required
+@admin_only
 def semester_add(yid):
     n_ar = request.form.get("name_ar", "").strip()
     if not n_ar:
@@ -132,7 +154,7 @@ def semester_add(yid):
 
 
 @bp.route("/semesters/<int:sid>/delete", methods=["POST"])
-@login_required
+@admin_only
 def semester_delete(sid):
     db.session.delete(db.session.get(Semester, sid))
     db.session.commit()
@@ -142,7 +164,7 @@ def semester_delete(sid):
 
 # ---------- structure ----------
 @bp.route("/structure")
-@login_required
+@admin_only
 def structure():
     return render_template("structure.html", stages=Stage.query.order_by(Stage.order).all(),
                            years=AcademicYear.query.order_by(AcademicYear.name.desc()).all(),
@@ -151,7 +173,7 @@ def structure():
 
 
 @bp.route("/structure/stage", methods=["POST"])
-@login_required
+@admin_only
 def stage_add():
     if not request.form.get("name_ar", "").strip():
         msg("required", "err")
@@ -164,7 +186,7 @@ def stage_add():
 
 
 @bp.route("/structure/class", methods=["POST"])
-@login_required
+@admin_only
 def class_add():
     if not request.form.get("name_ar", "").strip():
         msg("required", "err")
@@ -178,7 +200,7 @@ def class_add():
 
 
 @bp.route("/structure/section", methods=["POST"])
-@login_required
+@admin_only
 def section_add():
     name = request.form.get("name", "").strip()
     yid, cid = int(request.form["year_id"]), int(request.form["class_id"])
@@ -194,7 +216,7 @@ def section_add():
 
 
 @bp.route("/structure/<kind>/<int:oid>/delete", methods=["POST"])
-@login_required
+@admin_only
 def structure_delete(kind, oid):
     model = {"stage": Stage, "class": SchoolClass, "section": Section}[kind]
     obj = db.session.get(model, oid)
@@ -215,7 +237,7 @@ PER_PAGE = 25
 
 
 @bp.route("/students")
-@login_required
+@staff
 def students():
     years = AcademicYear.query.order_by(AcademicYear.name.desc()).all()
     yid = request.args.get("year_id", type=int) or (current_year().id if current_year() else None)
@@ -248,7 +270,7 @@ def students():
 
 @bp.route("/students/new", methods=["GET", "POST"])
 @bp.route("/students/<int:sid>", methods=["GET", "POST"])
-@login_required
+@admin_only
 def student_form(sid=None):
     st = db.session.get(Student, sid) if sid else None
     y = current_year()
@@ -281,7 +303,7 @@ def student_form(sid=None):
 
 
 @bp.route("/students/<int:sid>/delete", methods=["POST"])
-@login_required
+@admin_only
 def student_delete(sid):
     db.session.delete(db.session.get(Student, sid))
     db.session.commit()
@@ -294,7 +316,7 @@ def log(kind, summary, data):
 
 
 @bp.route("/students/move", methods=["POST"])
-@login_required
+@admin_only
 def students_move():
     ids = request.form.getlist("ids", type=int)
     yid = request.form.get("year_id", type=int)
@@ -353,14 +375,14 @@ def _resolve_section(row, year, auto):
 
 
 @bp.route("/import/template")
-@login_required
+@admin_only
 def import_template():
     return Response(template_csv(), mimetype="text/csv",
                     headers={"Content-Disposition": "attachment; filename=students_template.csv"})
 
 
 @bp.route("/import", methods=["GET", "POST"])
-@login_required
+@admin_only
 def import_students():
     year = current_year()
     if request.method == "GET":
@@ -431,7 +453,7 @@ def _plan(src_year, tgt_year, class_id):
 
 
 @bp.route("/promote", methods=["GET", "POST"])
-@login_required
+@admin_only
 def promote():
     years = AcademicYear.query.order_by(AcademicYear.name.desc()).all()
     classes = SchoolClass.query.order_by(SchoolClass.order).all()
@@ -474,13 +496,13 @@ def promote():
 
 # ---------- history / undo ----------
 @bp.route("/history")
-@login_required
+@admin_only
 def history():
     return render_template("history.html", logs=AuditLog.query.order_by(AuditLog.id.desc()).limit(100).all())
 
 
 @bp.route("/history/<int:lid>/undo", methods=["POST"])
-@login_required
+@admin_only
 def undo(lid):
     lg = db.session.get(AuditLog, lid)
     if lg.undone:
@@ -513,3 +535,56 @@ def service_worker():
     resp.headers["Service-Worker-Allowed"] = "/"
     resp.headers["Cache-Control"] = "no-cache"
     return resp
+
+
+# ---------- users (staff accounts) ----------
+@bp.route("/users", methods=["GET", "POST"])
+@admin_only
+def users():
+    if request.method == "POST":
+        name, pw = request.form.get("username", "").strip(), request.form.get("password", "")
+        role = request.form.get("role")
+        if not name or role not in ("admin", "librarian"):
+            msg("required", "err")
+        elif len(pw) < 8:
+            msg("password_short", "err")
+        elif User.query.filter_by(username=name).first():
+            msg("duplicate", "err")
+        else:
+            u = User(username=name, role=role)
+            u.set_password(pw)
+            db.session.add(u)
+            db.session.commit()
+            msg("saved")
+        return redirect(url_for("main.users"))
+    return render_template("users.html", users=User.query.order_by(User.username).all())
+
+
+@bp.route("/users/<int:uid>/password", methods=["POST"])
+@admin_only
+def user_password(uid):
+    pw = request.form.get("password", "")
+    if len(pw) < 8:
+        msg("password_short", "err")
+    else:
+        u = db.session.get(User, uid)
+        u.set_password(pw)
+        u.failed_count, u.locked_until = 0, None
+        db.session.commit()
+        msg("saved")
+    return redirect(url_for("main.users"))
+
+
+@bp.route("/users/<int:uid>/delete", methods=["POST"])
+@admin_only
+def user_delete(uid):
+    u = db.session.get(User, uid)
+    if u.id == current_user.id:
+        msg("cannot_delete_self", "err")
+    elif u.role == "admin" and User.query.filter_by(role="admin").count() <= 1:
+        msg("last_admin", "err")
+    else:
+        db.session.delete(u)
+        db.session.commit()
+        msg("deleted")
+    return redirect(url_for("main.users"))

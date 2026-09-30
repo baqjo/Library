@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="between"><h2>{{ t('students') }}</h2><a class="btn" href="{{ url_for('main.student_form') }}">{{ t('add_student') }}</a></div>
+<div class="between"><h2>{{ t('students') }}</h2>{% if is_admin %}<a class="btn" href="{{ url_for('main.student_form') }}">{{ t('add_student') }}</a>{% endif %}</div>
 <form method="get" class="card row">
   <label>{{ t('year') }}<select name="year_id">{% for y in years %}<option value="{{ y.id }}" {{ 'selected' if y.id==yid }}>{{ y.name }}</option>{% endfor %}</select></label>
   <label>{{ t('stage') }}<select name="stage_id"><option value="">{{ t('all') }}</option>{% for s in stages %}<option value="{{ s.id }}" {{ 'selected' if s.id==stage_id }}>{{ s.name(lang) }}</option>{% endfor %}</select></label>
@@ -11,18 +11,19 @@
 </form>
 <form method="post" action="{{ url_for('main.students_move') }}" id="bulk">
 <input type="hidden" name="year_id" value="{{ yid }}">
-<div class="card row bulkbar">
+{% if is_admin %}<div class="card row bulkbar">
   <strong>{{ t('move_selected') }}</strong>
   <select name="target_section" required><option value="">{{ t('target_section') }}</option>{% for s in year_sections %}<option value="{{ s.id }}">{{ s.label(lang) }}</option>{% endfor %}</select>
   <button class="btn">{{ t('move') }}</button>
-</div>
+</div>{% endif %}
 <div class="tablewrap"><table>
 <thead><tr><th><input type="checkbox" id="all" title="{{ t('select_all') }}"></th><th>{{ t('student_no') }}</th><th>{{ t('name') }}</th><th>{{ t('stage') }} / {{ t('class') }} / {{ t('section') }}</th><th>{{ t('actions') }}</th></tr></thead>
 {% for st, en, sec in pag.items %}
 <tr><td><input type="checkbox" name="ids" value="{{ st.id }}" class="chk"></td>
 <td>{{ st.student_no }}</td><td>{{ st.name(lang) }}</td>
 <td>{% if en and en.status == 'graduated' %}{{ t('graduated') }}{% elif sec %}{{ sec.label(lang) }}{% else %}<em>{{ t('unenrolled') }}</em>{% endif %}</td>
-<td><a href="{{ url_for('main.student_form', sid=st.id) }}">{{ t('edit') }}</a></td></tr>
+<td>{% if is_admin %}<a href="{{ url_for('main.student_form', sid=st.id) }}">{{ t('edit') }}</a>{% endif %}
+ <button class="btn sm ghost" formaction="{{ url_for('portal.pin_one', sid=st.id) }}" formmethod="post" name="_" value="1" onclick="return confirm('{{ t('generate_pin') }}?')">{{ t('generate_pin') }}</button></td></tr>
 {% else %}<tr><td colspan="5">{{ t('no_data') }}</td></tr>{% endfor %}
 </table></div>
 </form>

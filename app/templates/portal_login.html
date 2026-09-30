@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card narrow">
+  <h2>{{ t('student_login') }}</h2>
+  {% if ms_on %}<a class="btn" href="{{ url_for('portal.ms_start') }}" style="display:block;text-align:center">{{ t('login_microsoft') }}</a>{% endif %}
+  {% if ms_on and pin_on %}<p style="text-align:center;margin:.8rem 0">— {{ t('or') }} —</p>{% endif %}
+  {% if pin_on %}
+  <form method="post">
+    <label>{{ t('student_no') }}<input name="student_no" required autocomplete="username" dir="ltr" autofocus></label>
+    <label>{{ t('pin') }}<input name="pin" type="password" required inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="current-password" dir="ltr"></label>
+    <button class="btn">{{ t('login') }}</button>
+  </form>
+  {% endif %}
+  {% if not ms_on and not pin_on %}<p>{{ t('no_login_method') }}</p>{% endif %}
+  <p><small><a href="{{ url_for('main.login') }}">{{ t('staff_login_link') }}</a></small></p>
+</div>
+{% endblock %}

@@ -1,10 +1,10 @@
 from datetime import datetime
 from flask import Blueprint, render_template, request, redirect, url_for, Response
-from flask_login import login_required
 from sqlalchemy import func
 from . import db
 from .barcode import svg, is_valid
 from .models import BarcodeRange, Copy, Student, Section, Enrollment, School
+from .auth import staff, admin_only
 from .util import L, msg
 from .circ import current_year
 
@@ -38,7 +38,7 @@ def free_codes(kind, limit=None):
 
 
 @bp.route("/", methods=["GET", "POST"])
-@login_required
+@staff
 def index():
     if request.method == "POST":
         kind = request.form.get("kind")
@@ -73,7 +73,7 @@ def index():
 
 
 @bp.route("/<int:rid>/delete", methods=["POST"])
-@login_required
+@admin_only
 def delete(rid):
     r = db.session.get(BarcodeRange, rid)
     used = used_codes()
@@ -87,7 +87,7 @@ def delete(rid):
 
 
 @bp.route("/<int:rid>/labels")
-@login_required
+@staff
 def labels(rid):
     r = db.session.get(BarcodeRange, rid)
     lo = request.args.get("from", type=int) or r.start
@@ -102,7 +102,7 @@ def labels(rid):
 
 
 @bp.route("/student-cards")
-@login_required
+@staff
 def student_cards():
     """Printable patron labels for the students of a section (or all) in the current year."""
     y = current_year()
@@ -120,7 +120,7 @@ def student_cards():
 
 
 @bp.route("/<int:rid>/assign", methods=["POST"])
-@login_required
+@staff
 def assign_students(rid):
     """Give every student of the current year who has no barcode the next free code from this range."""
     r = db.session.get(BarcodeRange, rid)

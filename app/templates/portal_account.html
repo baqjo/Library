@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>{{ t('my_account') }} — {{ s.name(lang) }}</h2>
+<h3>{{ t('my_holds') }}</h3>
+<div class="card tablewrap"><table>
+{% for h in my_holds %}<tr><td><a href="{{ url_for('portal.title', tid=h.title_id) }}">{{ h.title.title }}</a></td>
+ <td>{% if h.status=='ready' %}<b>{{ t('hold_ready') }}</b> — {{ t('pickup_until') }} {{ h.expires_at }} — {{ where(h.copy) if h.copy else '' }}{% else %}{{ t('hold_waiting') }} — {{ t('position') }} {{ queue(h) }}{% endif %}</td>
+ <td><form method="post" action="{{ url_for('portal.hold_cancel', hid=h.id) }}" class="inline" onsubmit="return confirm('{{ t('cancel_hold') }}?')"><button class="btn sm danger">{{ t('cancel_hold') }}</button></form></td></tr>
+{% else %}<tr><td>{{ t('no_holds') }}</td></tr>{% endfor %}
+</table></div>
+<h3>{{ t('my_loans') }}</h3>
+<div class="card tablewrap"><table>
+{% for l in loans %}<tr><td>{{ l.copy.title.title }}</td><td dir="ltr">{{ l.copy.barcode }}</td>
+ <td {% if l.due_date < today %}style="color:#b3261e"{% endif %}>{{ t('due') }} {{ l.due_date }}{% if l.due_date < today %} — {{ t('overdue') }}{% endif %}</td></tr>
+{% else %}<tr><td>{{ t('no_data') }}</td></tr>{% endfor %}
+</table></div>
+{% if fines %}<h3>{{ t('fines') }}</h3><div class="card tablewrap"><table>
+{% for f in fines %}<tr><td>{{ f.created_at.strftime('%Y-%m-%d') }}</td><td>{{ f.loan.copy.title.title if f.loan else '' }}</td><td>{{ t('overdue_r') if f.reason=='overdue' else t('lost_r') }}</td><td>{{ '%g'|format(f.amount) }}</td></tr>{% endfor %}
+</table><p><b>{{ t('fines_total') }}: {{ '%g'|format(total) }}</b></p></div>{% endif %}
+{% if history %}<h3>{{ t('holds') }}</h3><div class="card tablewrap"><table>
+{% for h in history %}<tr><td>{{ h.title.title }}</td><td>{{ t({'fulfilled':'hold_fulfilled','expired':'hold_expired','cancelled':'hold_cancelled_s'}[h.status]) }}</td></tr>{% endfor %}
+</table></div>{% endif %}
+{% endblock %}

@@ -8,6 +8,8 @@
   <label>{{ t('fine_per_day') }}<input type="number" step="0.01" min="0" name="fine_per_day" value="{{ p.fine_per_day }}"></label>
   <label>{{ t('grace_days') }}<input type="number" min="0" name="grace_days" value="{{ p.grace_days }}"></label>
   <label>{{ t('block_fines') }}<input type="number" step="0.01" min="0" name="block_fine_amount" value="{{ p.block_fine_amount }}"></label>
+  <label>{{ t('hold_pickup_days') }}<input type="number" min="1" name="hold_pickup_days" value="{{ p.hold_pickup_days or 3 }}"></label>
+  <label>{{ t('max_holds_f') }}<input type="number" min="1" name="max_holds" value="{{ p.max_holds or 3 }}"></label>
   <label class="check"><input type="checkbox" name="block_if_overdue" {{ 'checked' if p.block_if_overdue }}> {{ t('block_overdue') }}</label>
   <label class="check"><input type="checkbox" name="allow_renew_overdue" {{ 'checked' if p.allow_renew_overdue }}> {{ t('renew_overdue_f') }}</label>
   <strong>{{ t('closed_days') }}</strong>
