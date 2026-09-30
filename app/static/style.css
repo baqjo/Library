@@ -38,3 +38,10 @@ th{background:var(--bg)}
 .badge.off{background:#fde7e5;color:#b3261e}
 table.kv{width:auto}table.kv th{background:none;white-space:nowrap;color:#5b6773;font-weight:600;padding-inline-end:1rem;border:0}table.kv td{border:0}
 .result h3 a{color:var(--c);text-decoration:none}
+td.num,th{white-space:nowrap}td.num{text-align:end}
+.bar{display:inline-block;width:5rem;height:.6rem;background:#e6ebf1;border-radius:3px;vertical-align:middle;margin-inline-end:.4rem;overflow:hidden}
+.bar i{display:block;height:100%;background:var(--c)}
+.muted{color:#8a95a1}.up{color:#1b5e2f}.down{color:#b3261e}
+tr.total td{font-weight:700;background:var(--bg)}
+.kpis{grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}
+@media print{.top,.nav,.filters,.btn,form.filters{display:none!important}body{background:#fff}.card{border:0;padding:0}main{max-width:none}}

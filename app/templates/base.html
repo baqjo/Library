@@ -28,6 +28,9 @@
   <a href="{{ url_for('portal.pins') }}">{{ t('pins') }}</a>
   <a href="{{ url_for('barcodes.index') }}">{{ t('barcodes') }}</a>
   <a href="{{ url_for('circ.fines') }}">{{ t('fines') }}</a>
+  <a href="{{ url_for('stats.index') }}">{{ t('stats') }}</a>
+  <a href="{{ url_for('reports.index') }}">{{ t('reports') }}</a>
+  <a href="{{ url_for('notifications.index') }}">{{ t('notifications') }}</a>
   {% if is_admin %}
   <a href="{{ url_for('main.import_students') }}">{{ t('import') }}</a>
   <a href="{{ url_for('main.promote') }}">{{ t('promote') }}</a>

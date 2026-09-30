@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>{{ t('notifications') }}</h2>
+<div class="card"><p>{{ t('mail_on') if on else t('mail_off') }}</p><p><small>{{ t('notif_hint') }}</small></p>
+<div class="grid"><div class="card stat"><span>{{ t('pending') }}</span><b>{{ counts.pending }}</b></div>
+<div class="card stat"><span>{{ t('sent') }}</span><b>{{ counts.sent }}</b></div>
+<div class="card stat"><span>{{ t('failed') }}</span><b>{{ counts.failed }}</b></div></div>
+<div class="row" style="margin-top:.8rem">
+ <form method="post" action="{{ url_for('notifications.run_now') }}"><button class="btn" {{ '' if on else 'disabled' }}>{{ t('run_now') }}</button></form>
+ {% if counts.failed %}<form method="post" action="{{ url_for('notifications.retry_failed') }}"><button class="btn ghost">{{ t('retry_failed') }}</button></form>{% endif %}
+ {% if is_admin %}<form method="post" action="{{ url_for('notifications.test') }}" class="row"><input type="email" name="to" placeholder="{{ t('to_addr') }}" dir="ltr" required><button class="btn ghost" {{ '' if on else 'disabled' }}>{{ t('send_test') }}</button></form>{% endif %}
+</div></div>
+<div class="card tablewrap"><table>
+<tr><th>{{ t('date') }}</th><th>{{ t('kind') }}</th><th>{{ t('students') }}</th><th>{{ t('to_addr') }}</th><th>{{ t('status') }}</th><th>{{ t('error') }}</th></tr>
+{% for r in rows %}<tr><td>{{ r.created_at.strftime('%Y-%m-%d %H:%M') }}</td><td>{{ t('kind_' ~ r.kind) if r.kind in ('hold_ready','due_soon','overdue') else r.kind }}</td>
+<td>{{ r.student.name(lang) if r.student else '' }}</td><td dir="ltr">{{ r.to_addr }}</td><td>{{ t(r.status) }}</td><td><small>{{ r.error }}</small></td></tr>
+{% else %}<tr><td colspan="6">{{ t('no_email') }}</td></tr>{% endfor %}
+</table></div>
+{% endblock %}

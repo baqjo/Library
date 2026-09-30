@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>{{ t('reports') }}</h2>
+<p><small>{{ t('period_hint') }}</small></p>
+<form method="get" class="card row" id="period">
+  <label>{{ t('from') }}<input type="date" name="from"></label>
+  <label>{{ t('to') }}<input type="date" name="to"></label>
+</form>
+<div class="card tablewrap"><table>
+{% for k in tables %}<tr><td>{{ t('report_' ~ k) }}</td>
+<td><a class="btn sm" data-rep="{{ url_for('reports.export', name=k, fmt='xlsx') }}" href="{{ url_for('reports.export', name=k, fmt='xlsx') }}">Excel</a>
+    <a class="btn sm ghost" data-rep="{{ url_for('reports.export', name=k, fmt='csv') }}" href="{{ url_for('reports.export', name=k, fmt='csv') }}">CSV</a></td></tr>{% endfor %}
+<tr><td>{{ t('stats') }}</td><td><a class="btn sm" href="{{ url_for('stats.index') }}">{{ t('stats') }}</a></td></tr>
+</table></div>
+<script>
+// append the chosen period to every export link (the server ignores it for lists that have no period)
+document.querySelectorAll('[data-rep]').forEach(a=>a.addEventListener('click',e=>{
+  const p=new URLSearchParams(new FormData(document.getElementById('period'))); [...p.keys()].forEach(k=>{if(!p.get(k))p.delete(k)});
+  a.href=a.dataset.rep+(p.toString()?'?'+p:'');}));
+</script>
+{% endblock %}

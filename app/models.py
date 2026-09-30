@@ -279,3 +279,21 @@ class Hold(db.Model):
     title = db.relationship("Title")
     student = db.relationship("Student")
     copy = db.relationship("Copy")
+
+
+# ================= Phase 4: notifications =================
+class EmailLog(db.Model):
+    """Outbox + history of e-mails sent through Microsoft Graph. dedupe_key makes every notification one-shot."""
+    id = db.Column(db.Integer, primary_key=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    kind = db.Column(db.String(20))  # hold_ready | due_soon | overdue | test
+    student_id = db.Column(db.Integer, db.ForeignKey("student.id"))
+    to_addr = db.Column(db.String(200), nullable=False)
+    subject = db.Column(db.String(300), default="")
+    body = db.Column(db.Text, default="")
+    dedupe_key = db.Column(db.String(120), unique=True)
+    status = db.Column(db.String(10), default="pending")  # pending | sent | failed
+    attempts = db.Column(db.Integer, default=0)
+    error = db.Column(db.String(500), default="")
+    sent_at = db.Column(db.DateTime)
+    student = db.relationship("Student")

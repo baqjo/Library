@@ -25,6 +25,11 @@ Flask + SQLAlchemy PWA, Arabic (RTL) / English (LTR). Modeled on Follett Destiny
 - Enhanced search: every word must match; Arabic hamza/ya/ta-marbuta/diacritics/Arabic-Indic digits are normalised; ISBN-10 and ISBN-13 are interchangeable, partial ISBNs work; results show exact ISBN, shelf, location and availability (plus earliest expected return when all copies are out).
 - Holds ("booking"): a student reserves a title. If a copy is free it is set aside (*held*) for `hold_pickup_days`; otherwise the student joins a first-come queue. Returning a copy passes it to the next student; ready holds expire lazily on the next request after the pickup date (no scheduler needed). Only the holder can check out a held copy. Staff see ready/waiting holds in **Holds** and a banner on the circulation desk.
 
+## Phase 4
+- **Statistics & comparison** (`/stats`): compare by year, semester, stage, class, section, book category, book language or month. Columns: enrolled students, loans, borrowers, participation %, loans per student, share of total, change vs previous row (time dimensions), holds, fines, unpaid fines. Filters: year, semester, stage, class, date range. Uses the section the student was in *at loan time*, so history stays correct after promotion. Also: live counters (on loan, overdue, holds, unpaid fines) and the 10 most borrowed titles.
+- **Export** (`/reports`): Excel (right-to-left sheet in Arabic) and CSV (UTF-8 with BOM) for statistics, overdue list, loans log, holds, fines, copies inventory and students with barcodes. Text that starts with `= + - @` is neutralised so imported names cannot run as spreadsheet formulas. PDF: use the *Print / Save as PDF* button on the statistics page.
+- **E-mail notifications** (`/notifications`) through Microsoft Graph (application permission `Mail.Send`, sent as `MAIL_SENDER`): hold ready, reminder 2 days before due date, weekly overdue notice. Bilingual (Arabic + English) message. Each message is sent once (unique key), failures are retried 3 times and can be re-queued. There is no background scheduler: run `flask --app wsgi send-notifications` every 15-30 minutes (Render *Cron Job*) or press *Run now*.
+
 ## Environment variables
 | Variable | Purpose |
 |---|---|
@@ -35,8 +40,9 @@ Flask + SQLAlchemy PWA, Arabic (RTL) / English (LTR). Modeled on Follett Destiny
 | `TRUST_PROXY=1` | behind Render / a reverse proxy (correct https URLs) |
 | `AZURE_TENANT_ID`, `AZURE_CLIENT_ID`, `AZURE_CLIENT_SECRET` | Microsoft sign-in |
 | `AZURE_REDIRECT_URI` | optional; default is `<site>/auth/callback` |
+| `MAIL_SENDER` | mailbox the notifications are sent from (needs Graph `Mail.Send`, *Application* permission, admin consent) |
 
-Azure app registration: platform *Web*, redirect URI `https://<site>/auth/callback`, delegated permission `User.Read`.
+Azure app registration: platform *Web*, redirect URI `https://<site>/auth/callback`, delegated permission `User.Read` (student sign-in) and application permission `Mail.Send` with admin consent (notifications). Consider an Exchange *application access policy* limiting the app to the library mailbox.
 
 ## Run
 ```

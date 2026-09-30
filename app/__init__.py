@@ -47,7 +47,10 @@ def create_app():
     from .barcodes import bp as barcodes_bp
     from .circulation import bp as circ_bp
     from .portal import bp as portal_bp
-    for b in (bp, catalog_bp, barcodes_bp, circ_bp, portal_bp):
+    from .stats import bp as stats_bp
+    from .reports import bp as reports_bp
+    from .notifications import bp as notif_bp
+    for b in (bp, catalog_bp, barcodes_bp, circ_bp, portal_bp, stats_bp, reports_bp, notif_bp):
         app.register_blueprint(b)
 
     if os.environ.get("TRUST_PROXY") == "1":  # behind Render / a reverse proxy: honour X-Forwarded-*
@@ -82,6 +85,16 @@ def create_app():
         db.session.add(u)
         db.session.commit()
         print("Admin ready:", username)
+
+    @app.cli.command("send-notifications")
+    def send_notifications():
+        """Queue and send due e-mails (hold ready, due soon, overdue). Schedule this every 15-30 minutes."""
+        from . import mailer
+        if not mailer.configured():
+            print("Mail is not configured (AZURE_* and MAIL_SENDER).")
+            return
+        made, sent, failed = mailer.run()
+        print(f"queued={made} sent={sent} failed={failed}")
 
     with app.app_context():
         db.create_all()
