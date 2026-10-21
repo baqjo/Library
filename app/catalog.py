@@ -7,12 +7,12 @@ from .auth import staff, admin_only
 from .util import L, msg
 from .i18n import tr
 from .barcode import normalize_scan, is_valid
-from .textnorm import tokens, build_search_text, clean_isbn, isbn_valid, isbn_variants
+from .textnorm import normalize, tokens, build_search_text, clean_isbn, isbn_valid, isbn_variants
 from .models import Hold
 from . import holds
 from .barcodes import free_codes, barcode_in_use
 from .circ import mark_copy, CircError
-from .importer import read_rows
+from .importer import read_rows, read_destiny_report
 
 bp = Blueprint("catalog", __name__, url_prefix="/catalog")
 PER_PAGE = 20
@@ -249,6 +249,8 @@ def import_catalog():
     if not f or not f.filename:
         msg("required", "err")
         return redirect(url_for("catalog.import_catalog"))
+    if (f.filename or "").lower().endswith(".xml"):
+        return _import_destiny(f)
     made_titles = made_copies = 0
     errs = []
     for i, r in enumerate(read_rows(f), start=2):
@@ -281,3 +283,31 @@ def import_catalog():
             db.session.rollback()
             errs.append((i, tr(str(e), L())))
     return render_template("catalog_import.html", errs=errs, made_titles=made_titles, made_copies=made_copies)
+
+
+def _import_destiny(f):
+    """Titles from a Follett Destiny custom-report XML. Re-running it never duplicates a title."""
+    try:
+        rows, report_copies = read_destiny_report(f.read())
+    except Exception:  # noqa - malformed XML
+        msg("bad_destiny", "err")
+        return redirect(url_for("catalog.import_catalog"))
+    key = lambda title, author, year: (normalize(title), normalize(author), year or "")  # noqa: E731
+    known = {key(t, a, y) for t, a, y in db.session.query(Title.title, Title.author, Title.pub_year)}
+    made = skipped = 0
+    for i, r in enumerate(rows, start=1):
+        k = key(r["title"], r["author"], r["year"])
+        if k in known:
+            skipped += 1
+            continue
+        known.add(k)
+        t = Title(isbn=None)
+        _fill_title(t, {**r, "pub_year": r["year"]})
+        refresh_search(t)
+        db.session.add(t)
+        made += 1
+        if made % 500 == 0:
+            db.session.commit()
+    db.session.commit()
+    return render_template("catalog_import.html", errs=[], made_titles=made, made_copies=0,
+                           destiny=dict(rows=len(rows), skipped=skipped, copies=report_copies))
