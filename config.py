@@ -1,7 +1,30 @@
 import os
+import secrets
+
+
+def _secret_key():
+    """SECRET_KEY from the environment, otherwise a random key generated once and kept in instance/.secret_key
+    (never a fixed default: anyone knowing it could forge sessions)."""
+    key = os.environ.get("SECRET_KEY")
+    if key:
+        return key
+    folder = os.path.join(os.path.dirname(os.path.abspath(__file__)), "instance")
+    path = os.path.join(folder, ".secret_key")
+    try:
+        with open(path, encoding="utf-8") as f:
+            key = f.read().strip()
+    except OSError:
+        key = ""
+    if len(key) < 32:
+        key = secrets.token_hex(32)
+        os.makedirs(folder, exist_ok=True)
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(key)
+    return key
+
 
 class Config:
-    SECRET_KEY = os.environ.get("SECRET_KEY", "change-me-in-production")
+    SECRET_KEY = _secret_key()
     uri = os.environ.get("DATABASE_URL", "sqlite:///library.db")
     if uri.startswith("postgres://"):
         uri = uri.replace("postgres://", "postgresql://", 1)

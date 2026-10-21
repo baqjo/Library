@@ -3,7 +3,8 @@ Flask-SQLAlchemy==3.1.1
 Flask-Login==0.6.3
 Flask-Migrate==4.0.7
 openpyxl==3.1.5
+defusedxml==0.7.1
 gunicorn==22.0.0
-psycopg2-binary==2.9.9
+psycopg2-binary==2.9.10
 msal==1.39.0
 requests==2.33.1

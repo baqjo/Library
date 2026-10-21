@@ -1,7 +1,7 @@
 import csv
 import io
 import re
-import xml.etree.ElementTree as ET
+from defusedxml import ElementTree as ET  # uploaded XML: no entity expansion / external entities
 from datetime import date
 from openpyxl import load_workbook
 
